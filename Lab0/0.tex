@@ -1,0 +1,33 @@
+\input{../praeambel}
+
+\begin{document}
+\maketitle
+
+%\setcounter{section}{0}
+%% Skip the first one
+%\setcounter{exercise}{1}
+
+\begin{exercise}[C Programming] \hfill
+    \begin{itemize}
+        \item[Q1] I've got a score of 7/10 points.
+
+        \item[Q2] The stack is the memory portion which stores values whose longlivity is defined by the scope of the function it is defined in (inline blocks), and some information about the current function call tree, e.g., the callers registers.
+            On function call the stack grows upward, on function return, the stack shrinks.
+            Therefore, the programmer must not access any variables whose value is stored on the stack, after the execution leaves the scope it was declared in.
+
+            This is different for heap-stored values, which the programmer has to manually allocate (assign an address and size) and deallocate.
+            Again, the programmer must not access to any value whose address has been deallocated to ensure memory safety, as the portion may have been already allocated for a different process.
+
+            When the stack grows too long, which can happen with, e.g., unrestricted recursive function calls, the process is forced to terminate, because the stack grew bigger, than its bounds.
+
+        \item[Q3] The C \lstinline|static| keyword is different from the commonly associated concept of a \emph{static variable}, which has the same lifetime as the program.
+            Instead, there are two main different meanings of the keyword, related to where a function or variable is declared.
+            If a variable is declared with the storage modifier \lstinline|static| inside a function, it keeps its value between invocations, which is similarly to the referenced concept.
+            If a variable is declared \lstinline|static| \emph{outside} any function, or a function is declared \lstinline|static|, access to the variable or function is only allowed to the scope of the file it is declared in.
+            In this case, the variable or function is not accessible in external scopes.
+
+        \item[Q4] You can write \lstinline|K/16| as \lstinline|K>>4|, and \lstinline|K%16| as \lstinline|(K>>4) & 0x1111|.
+    \end{itemize}
+\end{exercise}
+
+\end{document}
