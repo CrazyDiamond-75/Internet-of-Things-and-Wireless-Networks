@@ -48,10 +48,13 @@
 
 \begin{exercise}[Basic Networking] \hfill
     \begin{itemize}
-        \item[Q6]
-        \item[Q7]
+        \item[Q6] A BLE simulation is configured in Renode by building Zephyr firmware with the desired tool, e.g, PlatformIO or west.
+            The path to the generated firmware can be stored in a Renode shell variable for ease of use.
+            Now we have to create a virtual device, link a platform description, e.g., nrf52840, and connect it to a medium, which serves as a simulated pathway between devices.
+            Now for each device we must set it active and load the respective firmware.
+            Finally we can start the simulation.
+        \item[Q7] The advertiser tries to continuously broadcast \lstinline|"Hello IoT course!"|, while the scanner tries to receive these advertisements and print meta information about them.
         \item[Q8]
-        \item[Q9]
     \end{itemize}
 \end{exercise}
 
