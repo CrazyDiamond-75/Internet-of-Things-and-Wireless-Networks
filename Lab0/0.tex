@@ -26,7 +26,7 @@
             If a variable is declared \lstinline|static| \emph{outside} any function, or a function is declared \lstinline|static|, access to the variable or function is only allowed to the scope of the file it is declared in.
             In this case, the variable or function is not accessible in external scopes.
 
-        \item[Q4] You can write \lstinline|K/16| as \lstinline|K>>4|, and \lstinline|K%16| as \lstinline|(K>>4) & 0x1111|.
+        \item[Q4] You can write \lstinline|K/16| as \lstinline|K>>4|, and \lstinline|K%16| as \lstinline|(K>>4) & 0b1111|.
     \end{itemize}
 \end{exercise}
 
@@ -48,14 +48,29 @@
 
 \begin{exercise}[Basic Networking] \hfill
     \begin{itemize}
-        \item[Q6] A BLE simulation is configured in Renode by building Zephyr firmware with the desired tool, e.g, PlatformIO or west.
+        \item[Q6] A BLE simulation is configured in Renode in the following way.
+            First the Zephyr firmware has to be build with the desired tool, e.g, PlatformIO or west.
             The path to the generated firmware can be stored in a Renode shell variable for ease of use.
-            Now we have to create a virtual device, link a platform description, e.g., nrf52840, and connect it to a medium, which serves as a simulated pathway between devices.
-            Now for each device we must set it active and load the respective firmware.
+            Now we have to create a virtual device and link it to a platform description, e.g., nrf52840, in form of a \lstinline|.repl| file, which specifies its hardware components such as the CPU, peripherals, and BLE radio.
+            The simulated devices have to be connected to a medium, which serves as a simulated pathway between them.
+            Now for each device we must set it active and load the respective firmware with \lstinline|LoadELF|.
+            The simulated BLE radios are able to exchange sniffable packets as if over real wireless communication.
+            Optionally, we may enable UART analysers to observe runtime logs from each device.
             Finally we can start the simulation.
-        \item[Q7] The advertiser tries to continuously broadcast \lstinline|"Hello IoT course!"|, while the scanner tries to receive the advertisement and print it with some meta information about it.
-        \item[Q8]
+
+        \item[Q7] The advertiser initializes and tries to continuously broadcast \lstinline|"Hello IoT course!"| using non-connectable advertising.
+            It also provides additional information, such as the device name, in the scan response data. This effectively makes the device behave like a BLE beacon that can be detected by nearby devices.
+            The scanner initializes and tries to receive the (scan for) advertisements and print the message once with some relevant meta information (device address, signal strength, etc.) about it.
+
+        \item[Q8] As seen in \autoref{fig:2}, \dots.
     \end{itemize}
+
+    \begin{figure}[b]
+        \centering
+        %\includegraphics[width=0.6\textwidth]{}
+        \caption{\dots}
+        \label{fig:2}
+    \end{figure}
 \end{exercise}
 
 \end{document}
