@@ -9,7 +9,8 @@
 
 \begin{exercise}[C Programming] \hfill
     \begin{itemize}
-        \item[Q1] I've got a score of 7/10 points.
+        \item[Q1] Henry: I've got a score of 7/10 points.
+            Parham: I've got a score of 5/10 points.
 
         \item[Q2] The stack is the memory portion which stores values whose longlivity is defined by the scope of the function it is defined in (inline blocks), and some information about the current function call tree, e.g., the callers registers.
             On function call the stack grows upward, on function return, the stack shrinks.
@@ -62,13 +63,14 @@
             It also provides additional information, such as the device name, in the scan response data. This effectively makes the device behave like a BLE beacon that can be detected by nearby devices.
             The scanner initializes and tries to receive the (scan for) advertisements and print the message once with some relevant meta information (device address, signal strength, etc.) about it.
 
-        \item[Q8] As seen in \autoref{fig:2}, \dots.
+        \item[Q8] As seen in \autoref{fig:2}, when capturing the traffic in Wireshark and inspecting the Bluetooth Low Energy Link Layer, you can see the structure of the advertising packets.
+            In the advertising data fields, the transmitted message is visible. In particular, the payload contains the string "Hello IoT course!", which matches the data defined in the advertiser code.
     \end{itemize}
 
     \begin{figure}[b]
         \centering
-        %\includegraphics[width=0.6\textwidth]{}
-        \caption{\dots}
+        \includegraphics[width=0.6\textwidth]{./screenshot8.png}
+        \caption{Packet capture of the BLE demo in Wireshark.}
         \label{fig:2}
     \end{figure}
 \end{exercise}
