@@ -1,0 +1,51 @@
+:name: IoT Lab 1 PT 1
+:description: Simulation script for IoT lab 1 Part 1
+
+using sysbus
+$brodcaster_bin?=$ORIGIN/brodcaster/.pio/build/nrf52840_dk/firmware.elf
+$observer_bin?=$ORIGIN/observer/.pio/build/nrf52840_dk/firmware.elf
+
+emulation CreateBLEMedium "wireless"
+
+emulation CreateServerSocketTerminal 60001 "term1" false
+emulation CreateServerSocketTerminal 60002 "term2" false
+
+# Create brodcaster
+
+mach create "brodcaster"
+machine LoadPlatformDescription @platforms/cpus/nrf52840.repl
+connector Connect sysbus.radio wireless
+wireless SetPosition radio 0 0 0
+connector Connect uart0 term1
+
+logLevel -1 sysbus.radio
+showAnalyzer uart0
+
+# Create device2
+
+mach create "observer"
+machine LoadPlatformDescription @platforms/cpus/nrf52840.repl
+connector Connect sysbus.radio wireless
+wireless SetPosition radio 0 10 0
+connector Connect uart0 term2
+
+logLevel -1 sysbus.radio
+showAnalyzer uart0 
+
+emulation SetGlobalQuantum "0.00001"
+# Use Wireshark
+emulation LogBLETraffic
+
+macro reset
+"""
+    mach set "brodcaster"
+    sysbus LoadELF $brodcaster_bin
+
+    # (I've temporarily set this off, so that we can firstly test the brodcaster)
+	#mach set "observer"
+    #sysbus LoadELF $observer_bin
+"""
+runMacro $reset
+
+echo "Script loaded. Now start with the 'start' command."
+echo ""
