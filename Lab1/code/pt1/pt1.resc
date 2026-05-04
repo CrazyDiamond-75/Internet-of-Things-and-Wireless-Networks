@@ -41,9 +41,8 @@ macro reset
     mach set "brodcaster"
     sysbus LoadELF $brodcaster_bin
 
-    # (I've temporarily set this off, so that we can firstly test the brodcaster)
-	#mach set "observer"
-    #sysbus LoadELF $observer_bin
+	mach set "observer"
+    sysbus LoadELF $observer_bin
 """
 runMacro $reset
 
