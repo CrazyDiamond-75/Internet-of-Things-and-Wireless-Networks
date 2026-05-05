@@ -22,10 +22,11 @@ static const struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0x1809); // UUID f
 static const struct bt_uuid_16 char_uuid = BT_UUID_INIT_16(0x2A1C);    // Temperature measurement (A section 3.8.1 Characteristics by Name)
 
 /* Set Advertisement data */
+// Currently does not work that well, uncommenting the name field causes the advertisment data to be too big.
 static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR),      // General discoverable, BR/EDR not supported
     BT_DATA(BT_DATA_GAP_APPEARANCE, 0x0300, sizeof(uint16_t)),               // Generic Thermometer (A section 2.6.3 Apperance Sub-category values)
-    BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),            // Name of the device
+    //BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),            // Name of the device
     BT_DATA(BT_DATA_UUID16_ALL, service_uuid.val, sizeof(service_uuid.val)), // Advertise the service UUID so that clients can filter for it.
 };
 
@@ -68,11 +69,16 @@ static void bt_ready(int err)
     printk("Bluetooth initialized\n");
 
     /* Start advertising */
-    err = bt_le_adv_start(BT_LE_ADV_OPT_CONNECTABLE | BT_GAP_ADV_FAST_INT_MIN_2 | BT_GAP_ADV_FAST_INT_MAX_2, // Allow connections, and otherwise use same parameters as before.
-                          ad,
-                          ARRAY_SIZE(ad),
-                          NULL, // No scan response data.
-                          0);
+    err = bt_le_adv_start(
+        BT_LE_ADV_PARAM(
+            BT_LE_ADV_OPT_CONNECTABLE, // Allow connections
+            BT_GAP_ADV_FAST_INT_MIN_2,
+            BT_GAP_ADV_FAST_INT_MAX_2,
+            NULL),
+        ad,
+        ARRAY_SIZE(ad),
+        NULL, // No scan response data.
+        0);
     if (err)
     {
         printk("Advertising failed to start (err %d)\n", err);
