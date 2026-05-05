@@ -1,0 +1,50 @@
+:name: IoT Lab 1 PT 2
+:description: Simulation script for IoT lab 1 Part 2
+
+using sysbus
+$peripheral_bin?=$ORIGIN/peripheral/.pio/build/nrf52840_dk/firmware.elf
+$central_bin?=$ORIGIN/central/.pio/build/nrf52840_dk/firmware.elf
+
+emulation CreateBLEMedium "wireless"
+
+emulation CreateServerSocketTerminal 60001 "term1" false
+emulation CreateServerSocketTerminal 60002 "term2" false
+
+# Create peripheral
+
+mach create "peripheral"
+machine LoadPlatformDescription @platforms/cpus/nrf52840.repl
+connector Connect sysbus.radio wireless
+wireless SetPosition radio 0 0 0
+connector Connect uart0 term1
+
+logLevel -1 sysbus.radio
+showAnalyzer uart0
+
+# Create central
+
+mach create "central"
+machine LoadPlatformDescription @platforms/cpus/nrf52840.repl
+connector Connect sysbus.radio wireless
+wireless SetPosition radio 0 10 0
+connector Connect uart0 term2
+
+logLevel -1 sysbus.radio
+showAnalyzer uart0 
+
+emulation SetGlobalQuantum "0.00001"
+# Use Wireshark
+emulation LogBLETraffic
+
+macro reset
+"""
+    mach set "peripheral"
+    sysbus LoadELF $peripheral_bin
+
+	mach set "central"
+    sysbus LoadELF $central_bin
+"""
+runMacro $reset
+
+echo "Script loaded. Now start with the 'start' command."
+echo ""
