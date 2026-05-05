@@ -52,3 +52,6 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi,
 
 // Bluetooth ready callback, called when the Bluetooth stack is initialized and ready to use.
 static void bt_ready(int err);
+
+// Helper function to parse the advertising data and check if it contains the desired service UUID.
+static bool ad_parse(struct net_buf_simple *data);

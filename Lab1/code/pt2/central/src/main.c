@@ -1,5 +1,8 @@
 #include <main.h>
 
+// Push perform read to work queue
+K_WORK_DEFINE(read_work, perform_read);
+
 static uint8_t read_temperature(struct bt_conn *conn, uint8_t err, struct bt_gatt_read_params *params, const void *data, uint16_t length)
 {
     if (err)
@@ -11,6 +14,12 @@ static uint8_t read_temperature(struct bt_conn *conn, uint8_t err, struct bt_gat
     if (!data)
     {
         printk("Read complete, contains no data\n");
+        return BT_GATT_ITER_STOP;
+    }
+
+    if (length != sizeof(double))
+    {
+        printk("Unexpected data length: %d\n", length);
         return BT_GATT_ITER_STOP;
     }
 
@@ -55,9 +64,6 @@ static void perform_read(struct k_work *work)
     }
 }
 
-// Push perform read to work queue
-// K_WORK_DEFINE(read_work, perform_read);
-
 static uint8_t discover_char_cb(struct bt_conn *conn,
                                 const struct bt_gatt_attr *attr,
                                 struct bt_gatt_discover_params *params)
@@ -79,8 +85,8 @@ static uint8_t discover_char_cb(struct bt_conn *conn,
         printk("Found temperature characteristic with handle %d\n", temp_char_handle);
 
         // Perform a read after discovery
-        // k_work_submit(&read_work);
-        perform_read(NULL); // For now call perform_read directly instead of using a work queue.
+        k_work_submit(&read_work);
+        // perform_read(NULL);
 
         return BT_GATT_ITER_STOP;
     }
@@ -98,14 +104,7 @@ static uint8_t discover_characteristic(struct bt_conn *conn)
     discover_params.end_handle = 0xffff;
     discover_params.type = BT_GATT_DISCOVER_CHARACTERISTIC;
 
-    int err = bt_gatt_discover(conn, &discover_params);
-    if (err)
-    {
-        printk("Discover failed, error (%d)\n", err);
-        return BT_GATT_ITER_STOP;
-    }
-
-    return BT_GATT_ITER_CONTINUE;
+    return bt_gatt_discover(conn, &discover_params);
 }
 
 static void connected(struct bt_conn *conn, uint8_t err)
@@ -123,6 +122,8 @@ static void connected(struct bt_conn *conn, uint8_t err)
     if (err)
     {
         printk("Discover failed, error (%d)\n", err);
+        bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+        start_scan(); // Restart scanning if discovery failed
         return;
     }
 }
@@ -137,8 +138,8 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
         default_conn = NULL;
     }
 
-    // Restart scanning after disconnection, optional
-    // start_scan();
+    // Restart scanning after disconnection
+    start_scan();
 }
 
 // Register connection and disconnection callbacks
@@ -172,12 +173,16 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi,
                          uint8_t type, struct net_buf_simple *ad)
 {
     char addr_str[BT_ADDR_LE_STR_LEN];
-
     bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 
-    printk("Device found: %s, RSSI %d\n", addr_str, rssi);
+    // Check if the advertised device has the temperature service UUID in its advertising data
+    if (!ad_parse(ad))
+    {
+        printk("Wrong service, ignoring device: %s with UUID %d\n", addr_str, char_uuid.val);
+        return;
+    }
 
-    // Stop scanning
+    printk("Device found: %s, RSSI %d\n", addr_str, rssi);
     bt_le_scan_stop();
 
     // Initalize a connection
@@ -190,6 +195,11 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi,
         printk("Connection failed, error (%d)\n", err);
         start_scan(); // Restart scanning if connection failed
     }
+}
+
+static bool ad_parse(struct net_buf_simple *data)
+{
+    return true; // Accept all advertisements for now, FIXME.
 }
 
 static void bt_ready(int err)
