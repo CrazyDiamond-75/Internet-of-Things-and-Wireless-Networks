@@ -24,33 +24,27 @@ static const struct bt_uuid_16 char_uuid = BT_UUID_INIT_16(0x2A1C);    // Temper
 /* Set Advertisement data */
 // Little-endian encoding
 static const struct bt_data ad[] = {
-    BT_DATA_BYTES(BT_DATA_FLAGS,
-                  BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR),
+    // General discoverable, BR/EDR not supported
+    BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR),
 
-    BT_DATA_BYTES(BT_DATA_GAP_APPEARANCE,
-                  0x00, 0x03),
+    // Generic Thermometer (A section 2.6.3 Apperance Sub-category values)
+    BT_DATA_BYTES(BT_DATA_GAP_APPEARANCE, 0x00, 0x03),
 
-    BT_DATA_BYTES(BT_DATA_UUID16_ALL,
-                  0x09, 0x18),
+    // Service UUID
+    BT_DATA_BYTES(BT_DATA_UUID16_ALL, 0x09, 0x18),
 };
-#define USE_READ_CALLBACK 1
+
 // Read callback for the temperature characteristic
-#if USE_READ_CALLBACK
 static ssize_t read_temperature_callback(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                                          void *buf, uint16_t len, uint16_t offset)
 {
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &current_temperature, sizeof(current_temperature));
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, (double *)attr->user_data, sizeof(double));
 }
-#endif
 
 // GATT service declaration and registration.
 BT_GATT_SERVICE_DEFINE(temperature_service,
                        BT_GATT_PRIMARY_SERVICE(&service_uuid),
-#if !USE_READ_CALLBACK
-                       BT_GATT_CHARACTERISTIC(&char_uuid.uuid, BT_GATT_CHRC_READ, BT_GATT_PERM_READ, NULL, NULL, &current_temperature), // Either read current_temperature directly or use a read callback to read it.
-#else
-                       BT_GATT_CHARACTERISTIC(&char_uuid.uuid, BT_GATT_CHRC_READ, BT_GATT_PERM_READ, read_temperature_callback, NULL, NULL),
-#endif
+                       BT_GATT_CHARACTERISTIC(&char_uuid.uuid, BT_GATT_CHRC_READ, BT_GATT_PERM_READ, read_temperature_callback, NULL, &current_temperature),
                        // BT_GATT_CCC(callback, BT_GATT_PERM_READ), // Implement CCC change callback if we want to support notifications (asynchronous updates)
 );
 
