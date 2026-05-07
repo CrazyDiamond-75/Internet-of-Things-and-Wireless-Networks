@@ -7,8 +7,8 @@
 
 // FOR UUIDS, SEE REF A: https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/Assigned_Numbers.pdf
 
-static const struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0x1809); // UUID for health thermometor service (A section 3.4.1 Services by Name)
-static const struct bt_uuid_16 char_uuid = BT_UUID_INIT_16(0x2A1C);    // Temperature measurement (A section 3.8.1 Characteristics by Name)
+static struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0x1809); // UUID for health thermometor service (A section 3.4.1 Services by Name)
+static struct bt_uuid_16 char_uuid = BT_UUID_INIT_16(0x2A1C);    // Temperature measurement (A section 3.8.1 Characteristics by Name)
 
 static struct bt_conn *default_conn; // Current connection
 static uint16_t temp_char_handle;    // Handle for the temperature characteristic
@@ -46,7 +46,6 @@ static void start_scan(void);
  * It prints the address and RSSI of the received advertisement, and then
  * tries to initiate a connection to the device.
  */
-
 static void device_found(const bt_addr_le_t *addr, int8_t rssi,
                          uint8_t type, struct net_buf_simple *ad);
 
@@ -55,3 +54,6 @@ static void bt_ready(int err);
 
 // Helper function to parse the advertising data and check if it contains the desired service UUID.
 static bool ad_parse(struct net_buf_simple *data);
+
+// Callback used by ad_parse to iterate through the advertising data and check for the presence of the desired service UUID.
+static bool ad_parse_cb(struct bt_data *data, void *user_data);

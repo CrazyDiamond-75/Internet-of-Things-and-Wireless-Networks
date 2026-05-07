@@ -1,7 +1,6 @@
 #include <main.h>
 #include <sys/byteorder.h>
 
-
 // Push perform read to work queue
 
 static uint8_t read_temperature(struct bt_conn *conn, uint8_t err, struct bt_gatt_read_params *params, const void *data, uint16_t length)
@@ -117,6 +116,7 @@ static uint8_t discover_characteristic(struct bt_conn *conn)
 
 static void connected(struct bt_conn *conn, uint8_t err)
 {
+    // If bt_conn_le_create failed, report the error and restart scanning...
     if (err)
     {
         printk("Connection failed, error (%d)\n", err);
@@ -160,6 +160,7 @@ static void start_scan(void)
 {
     int err;
 
+    // Configure scan parameters: active scanning, no special options, fast interval and window.
     struct bt_le_scan_param scan_param = {
         .type = BT_LE_SCAN_TYPE_ACTIVE,
         .options = BT_LE_SCAN_OPT_NONE,
@@ -167,6 +168,7 @@ static void start_scan(void)
         .window = BT_GAP_SCAN_FAST_WINDOW,
     };
 
+    // Start scanning and check for errors, when a device is found proceed to device_found callback.
     err = bt_le_scan_start(&scan_param, device_found);
     if (err)
     {
@@ -180,20 +182,23 @@ static void start_scan(void)
 static void device_found(const bt_addr_le_t *addr, int8_t rssi,
                          uint8_t type, struct net_buf_simple *ad)
 {
+    // Convert the address to a string for printing.
     char addr_str[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 
-    // Check if the advertised device has the temperature service UUID in its advertising data
+    // Check if the advertised device has the temperature service UUID in its advertising data.
     if (!ad_parse(ad))
     {
         printk("Wrong service, ignoring device: %s with UUID %d\n", addr_str, char_uuid.val);
         return;
     }
 
+    // Print out the device and stop scanning.
     printk("Device found: %s, RSSI %d\n", addr_str, rssi);
     bt_le_scan_stop();
 
-    // Initalize a connection
+    // Initalize a connection with the device. If the connection fails, restart scanning.
+    // If the connection succeeds, the "connected" callback will be started.
     int err = bt_conn_le_create(addr,
                                 BT_CONN_LE_CREATE_CONN,
                                 BT_LE_CONN_PARAM_DEFAULT, // Default connection interval, latency and timeout.
@@ -205,7 +210,8 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi,
     }
 }
 
-struct ad_parse_ctx {
+struct ad_parse_ctx
+{
     bool found;
 };
 
@@ -219,7 +225,7 @@ static bool ad_parse_cb(struct bt_data *data, void *user_data)
         for (int i = 0; i + 1 < data->data_len; i += 2)
         {
             uint16_t uuid = sys_get_le16(&data->data[i]);
-            if (uuid == 0x1809) // Health Thermometer Service
+            if (uuid == service_uuid.val) // Health Thermometer Service
             {
                 ctx->found = true;
                 return false; // Stop iterating
@@ -231,28 +237,31 @@ static bool ad_parse_cb(struct bt_data *data, void *user_data)
 
 static bool ad_parse(struct net_buf_simple *data)
 {
-    struct ad_parse_ctx ctx = { .found = false };
+    struct ad_parse_ctx ctx = {.found = false};
     bt_data_parse(data, ad_parse_cb, &ctx);
     return ctx.found;
 }
 
 static void bt_ready(int err)
-{
+{   
+    // If Bluetooth didn't initialize, report the error and stop...
     if (err)
     {
         printk("Bluetooth init failed (err %d)\n", err);
         return;
     }
-
     printk("Bluetooth initialized\n");
 
+    // ... else proceed to start scanning.
     start_scan();
 }
 
+// Central main function
 void main(void)
 {
     printk("Starting Central\n");
 
+    // Initialize Bluetooth, and proceed to bt_ready.
     int err = bt_enable(bt_ready);
     if (err)
     {
@@ -261,6 +270,7 @@ void main(void)
 
     printk("bt_enable called\n");
 
+    // Sleep forever, all work is done in callbacks.
     while (1)
     {
         k_sleep(K_FOREVER);
