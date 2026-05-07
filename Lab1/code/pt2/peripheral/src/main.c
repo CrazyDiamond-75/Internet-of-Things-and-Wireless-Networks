@@ -22,14 +22,17 @@ static const struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0x1809); // UUID f
 static const struct bt_uuid_16 char_uuid = BT_UUID_INIT_16(0x2A1C);    // Temperature measurement (A section 3.8.1 Characteristics by Name)
 
 /* Set Advertisement data */
-// Currently does not work that well, uncommenting the name field causes the advertisment data to be too big.
+// Little-endian encoding
 static const struct bt_data ad[] = {
-    BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR),      // General discoverable, BR/EDR not supported
-    BT_DATA(BT_DATA_GAP_APPEARANCE, 0x0300, sizeof(uint16_t)),               // Generic Thermometer (A section 2.6.3 Apperance Sub-category values)
-    //BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),            // Name of the device
-    BT_DATA(BT_DATA_UUID16_ALL, service_uuid.val, sizeof(service_uuid.val)), // Advertise the service UUID so that clients can filter for it.
-};
+    BT_DATA_BYTES(BT_DATA_FLAGS,
+                  BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR),
 
+    BT_DATA_BYTES(BT_DATA_GAP_APPEARANCE,
+                  0x00, 0x03),
+
+    BT_DATA_BYTES(BT_DATA_UUID16_ALL,
+                  0x09, 0x18),
+};
 #define USE_READ_CALLBACK 1
 // Read callback for the temperature characteristic
 #if USE_READ_CALLBACK

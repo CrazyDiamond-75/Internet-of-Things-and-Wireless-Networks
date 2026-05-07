@@ -1,7 +1,8 @@
 #include <main.h>
+#include <sys/byteorder.h>
+
 
 // Push perform read to work queue
-K_WORK_DEFINE(read_work, perform_read);
 
 static uint8_t read_temperature(struct bt_conn *conn, uint8_t err, struct bt_gatt_read_params *params, const void *data, uint16_t length)
 {
@@ -11,9 +12,10 @@ static uint8_t read_temperature(struct bt_conn *conn, uint8_t err, struct bt_gat
         return BT_GATT_ITER_STOP;
     }
 
+    // data == NULL signals read completion, not an error
     if (!data)
     {
-        printk("Read complete, contains no data\n");
+        printk("Read complete\n");
         return BT_GATT_ITER_STOP;
     }
 
@@ -28,7 +30,7 @@ static uint8_t read_temperature(struct bt_conn *conn, uint8_t err, struct bt_gat
 
     printk("Received temperature: %d m°C\n", (int)(temp * 1000));
 
-    return BT_GATT_ITER_CONTINUE;
+    return BT_GATT_ITER_STOP; // Single attribute read, stop after first result
 }
 
 static int read_characteristic(struct bt_conn *conn, uint16_t handle)
@@ -42,6 +44,9 @@ static int read_characteristic(struct bt_conn *conn, uint16_t handle)
 
     return bt_gatt_read(conn, &read_params);
 }
+
+// Replace K_WORK_DEFINE with delayed work
+K_WORK_DELAYABLE_DEFINE(read_work, perform_read);
 
 static void perform_read(struct k_work *work)
 {
@@ -62,6 +67,9 @@ static void perform_read(struct k_work *work)
     {
         printk("Read failed, error (%d)\n", err);
     }
+
+    // Reschedule itself every 5 seconds
+    k_work_schedule(&read_work, K_SECONDS(5));
 }
 
 static uint8_t discover_char_cb(struct bt_conn *conn,
@@ -85,7 +93,7 @@ static uint8_t discover_char_cb(struct bt_conn *conn,
         printk("Found temperature characteristic with handle %d\n", temp_char_handle);
 
         // Perform a read after discovery
-        k_work_submit(&read_work);
+        k_work_schedule(&read_work, K_NO_WAIT);
         // perform_read(NULL);
 
         return BT_GATT_ITER_STOP;
@@ -197,9 +205,35 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi,
     }
 }
 
+struct ad_parse_ctx {
+    bool found;
+};
+
+static bool ad_parse_cb(struct bt_data *data, void *user_data)
+{
+    struct ad_parse_ctx *ctx = user_data;
+
+    if (data->type == BT_DATA_UUID16_ALL || data->type == BT_DATA_UUID16_SOME)
+    {
+        // service_uuid.val is 0x1809, stored little-endian
+        for (int i = 0; i + 1 < data->data_len; i += 2)
+        {
+            uint16_t uuid = sys_get_le16(&data->data[i]);
+            if (uuid == 0x1809) // Health Thermometer Service
+            {
+                ctx->found = true;
+                return false; // Stop iterating
+            }
+        }
+    }
+    return true; // Continue iterating
+}
+
 static bool ad_parse(struct net_buf_simple *data)
 {
-    return true; // Accept all advertisements for now, FIXME.
+    struct ad_parse_ctx ctx = { .found = false };
+    bt_data_parse(data, ad_parse_cb, &ctx);
+    return ctx.found;
 }
 
 static void bt_ready(int err)
@@ -226,4 +260,9 @@ void main(void)
     }
 
     printk("bt_enable called\n");
+
+    while (1)
+    {
+        k_sleep(K_FOREVER);
+    }
 }
