@@ -30,7 +30,15 @@ static const struct bt_data ad[] = {
     BT_DATA(BT_DATA_UUID16_ALL, service_uuid.val, sizeof(service_uuid.val)), // Advertise the service UUID so that clients can filter for it.
 };
 
-#define USE_READ_CALLBACK 0
+#define USE_READ_CALLBACK 1
+// Read callback for the temperature characteristic
+#if USE_READ_CALLBACK
+static ssize_t read_temperature_callback(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                                         void *buf, uint16_t len, uint16_t offset)
+{
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &current_temperature, sizeof(current_temperature));
+}
+#endif
 
 // GATT service declaration and registration.
 BT_GATT_SERVICE_DEFINE(temperature_service,
@@ -42,15 +50,6 @@ BT_GATT_SERVICE_DEFINE(temperature_service,
 #endif
                        // BT_GATT_CCC(callback, BT_GATT_PERM_READ), // Implement CCC change callback if we want to support notifications (asynchronous updates)
 );
-
-// Read callback for the temperature characteristic
-#if USE_READ_CALLBACK
-static ssize_t read_temperature_callback(struct bt_conn *conn, const struct bt_gatt_attr *attr,
-                                         void *buf, uint16_t len, uint16_t offset)
-{
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &current_temperature, sizeof(current_temperature));
-}
-#endif
 
 // No scan response data needed, but could be added.
 
