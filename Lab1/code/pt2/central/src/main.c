@@ -120,18 +120,20 @@ static void connected(struct bt_conn *conn, uint8_t err)
     if (err)
     {
         printk("Connection failed, error (%d)\n", err);
+        default_conn = NULL;
+        start_scan();
         return;
     }
 
-    printk("Connected\n"); // Todo: Maybe print the address of the connected device
     default_conn = bt_conn_ref(conn);
+    printk("Connected\n");
 
-    err = discover_characteristic(conn);
-    if (err)
+    int disc_err = discover_characteristic(conn);
+    if (disc_err)
     {
-        printk("Discover failed, error (%d)\n", err);
+        printk("Discover failed, error (%d)\n", disc_err);
         bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
-        start_scan(); // Restart scanning if discovery failed
+        start_scan();
         return;
     }
 }
@@ -189,7 +191,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi,
     // Check if the advertised device has the temperature service UUID in its advertising data.
     if (!ad_parse(ad))
     {
-        printk("Wrong service, ignoring device: %s with UUID %d\n", addr_str, char_uuid.val);
+        printk("Wrong service, ignoring device: %s\n", addr_str);
         return;
     }
 
@@ -199,15 +201,19 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi,
 
     // Initalize a connection with the device. If the connection fails, restart scanning.
     // If the connection succeeds, the "connected" callback will be started.
+    struct bt_conn *conn;
     int err = bt_conn_le_create(addr,
                                 BT_CONN_LE_CREATE_CONN,
                                 BT_LE_CONN_PARAM_DEFAULT, // Default connection interval, latency and timeout.
-                                &default_conn);
+                                &conn);
     if (err)
     {
         printk("Connection failed, error (%d)\n", err);
         start_scan(); // Restart scanning if connection failed
+        return;
     }
+
+    bt_conn_unref(conn);
 }
 
 struct ad_parse_ctx
@@ -243,7 +249,7 @@ static bool ad_parse(struct net_buf_simple *data)
 }
 
 static void bt_ready(int err)
-{   
+{
     // If Bluetooth didn't initialize, report the error and stop...
     if (err)
     {
