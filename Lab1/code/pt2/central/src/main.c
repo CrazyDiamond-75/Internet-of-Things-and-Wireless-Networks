@@ -26,8 +26,8 @@ static uint8_t read_temperature(struct bt_conn *conn, uint8_t err, struct bt_gat
     // Else, copy the received data into a double variable, print it out and stop.
     double temp;
     memcpy(&temp, data, sizeof(double));
-
-    printk("Received temperature: %d m°C\n", (int)(temp * 1000));
+    uint32_t now = k_uptime_get_32();
+    printk("RECV t=%u temp=%d\n", now, (int)(temp * 1000));
 
     return BT_GATT_ITER_STOP; // Single attribute read, stop after first result.
 }

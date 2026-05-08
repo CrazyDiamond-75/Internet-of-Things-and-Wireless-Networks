@@ -65,11 +65,14 @@ int main(void)
 
     // After starting advertising, we can update the temperature value periodically.
     printk("Updating temperature data every 5 seconds...\n");
+    static uint32_t packet_id = 0;
+
     while (1)
     {
         k_sleep(K_SECONDS(5));
         update_temperature(&current_temperature);
-        printk("Current temperature: %dm°C\n", (int)(1000 * current_temperature));
+        uint32_t now = k_uptime_get_32();
+        printk("SEND id=%u t=%u temp=%d\n", packet_id++, now, (int)(1000 * current_temperature));
     }
 
     return 0;
