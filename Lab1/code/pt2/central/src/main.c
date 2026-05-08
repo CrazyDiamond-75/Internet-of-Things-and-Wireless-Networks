@@ -1,5 +1,4 @@
-#include <main.h>
-#include <sys/byteorder.h>
+#include "main.h"
 
 static uint8_t read_temperature(struct bt_conn *conn, uint8_t err, struct bt_gatt_read_params *params, const void *data, uint16_t length)
 {
