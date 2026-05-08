@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.10 Safari/537.36" version="29.6.1" pages="2">
   <diagram name="Broadcaster and Observer" id="s6pT7-MXViwl7iIUhr5j">
-    <mxGraphModel dx="984" dy="575" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+    <mxGraphModel dx="2064" dy="1205" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -63,8 +63,8 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="wlqIOKg54CJ2pMsp--qz" name="Peripheral and Observer">
-    <mxGraphModel dx="1181" dy="690" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+  <diagram id="wlqIOKg54CJ2pMsp--qz" name="Peripheral and Central">
+    <mxGraphModel dx="2064" dy="1205" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -92,7 +92,7 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="HxiH2SNnDLhbSsWpvqom-3" parent="1" style="align=left;overflow=fill;html=1;dropTarget=0;fontFamily=Roboto;whiteSpace=wrap;textShadow=0;labelBorderColor=none;labelBackgroundColor=none;" value="&lt;p style=&quot;margin:0px;margin-top:6px;text-align:center;&quot;&gt;&lt;b&gt;Observer&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot; style=&quot;text-align: center; border-style: solid;&quot;&gt;&lt;div style=&quot;text-align: center;&quot;&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;font style=&quot;line-height: 100%; font-size: 11px;&quot;&gt;Scans, connects, sends read requests every 5 seconds, and prints received responses if they contain the right UUIDs and can be parsed&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" vertex="1">
+        <mxCell id="HxiH2SNnDLhbSsWpvqom-3" parent="1" style="align=left;overflow=fill;html=1;dropTarget=0;fontFamily=Roboto;whiteSpace=wrap;textShadow=0;labelBorderColor=none;labelBackgroundColor=none;" value="&lt;p style=&quot;margin:0px;margin-top:6px;text-align:center;&quot;&gt;&lt;b&gt;Central&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot; style=&quot;text-align: center; border-style: solid;&quot;&gt;&lt;div style=&quot;text-align: center;&quot;&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;font style=&quot;line-height: 100%; font-size: 11px;&quot;&gt;Scans, connects, sends read requests every 5 seconds, and prints received responses if they contain the right UUIDs and can be parsed&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry height="80" width="240" x="670" y="398" as="geometry" />
         </mxCell>
         <mxCell id="HxiH2SNnDLhbSsWpvqom-4" parent="HxiH2SNnDLhbSsWpvqom-3" style="shape=component;jettyWidth=8;jettyHeight=4;fontFamily=Roboto;whiteSpace=wrap;textShadow=0;labelBorderColor=none;labelBackgroundColor=none;" value="" vertex="1">
