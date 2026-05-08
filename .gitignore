@@ -25,6 +25,8 @@
 *.tdo
 *.synctex.gz
 
+*.drawio.bkp
 *.pdf
 
 .vscode
+
