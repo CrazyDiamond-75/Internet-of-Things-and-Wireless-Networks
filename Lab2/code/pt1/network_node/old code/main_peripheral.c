@@ -1,4 +1,4 @@
-#include "main.h"
+#include "main_peripheral.h"
 
 static ssize_t read_temperature_callback(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                                          void *buf, uint16_t len, uint16_t offset)

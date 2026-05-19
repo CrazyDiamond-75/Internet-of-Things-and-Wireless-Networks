@@ -12,7 +12,7 @@ double random_interval_normal(double mu, double sd)
     }
 
     // Scale and shift to get the desired mean mu and standard deviation sd.
-    return mu + sqrt(2.0) * sd * (sum - 3.0);
+    return mu + M_SQRT2 * sd * (sum - 3.0);
 }
 
 double random_interval_bernoulli(double p, double dt_false, double dt_true)

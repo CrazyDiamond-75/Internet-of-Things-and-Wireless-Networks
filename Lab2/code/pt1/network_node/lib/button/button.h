@@ -1,5 +1,6 @@
 #include <zephyr.h>
 #include <random/rand32.h>
+#include <math.h>
 
 /* Compiler parameter to select the method for determining the dt until the next button press.
     0: Normal interval
