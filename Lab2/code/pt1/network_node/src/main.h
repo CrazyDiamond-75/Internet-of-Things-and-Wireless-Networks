@@ -11,6 +11,7 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/uuid.h>
 #include <bluetooth/gatt.h>
+#include <drivers/gpio.h>
 #include <bluetooth/conn.h>
 
 #include <button.h>

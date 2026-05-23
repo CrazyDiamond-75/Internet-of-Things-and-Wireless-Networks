@@ -119,7 +119,7 @@ macro reset
     mach set "device_4"
     sysbus LoadELF $firmware_bin
     sysbus WriteDoubleWord 0x2003F000 0xDEADBEEF
-    sysbus WriteDoubleWord 0x2003F004 2
+    sysbus WriteDoubleWord 0x2003F004 1
     sysbus WriteDoubleWord 0x2003F008 3
 
 #     mach set "interferer_1"                           # uncomment for second part of the evaluation
