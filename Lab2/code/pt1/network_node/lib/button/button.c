@@ -45,7 +45,7 @@ double looped_interval(double *dts, int n)
 }
 
 // Example value for purpose of testing.
-double next_press_dt()
+double next_event_dt()
 {
 #if METHOD == 0
     return random_interval_normal(1000.0, 200.0);
@@ -56,18 +56,18 @@ double next_press_dt()
 #elif METHOD == 3
     return constant_interval(1000.0);
 #elif METHOD == 4
-    static double sequence[] = {500.0, 1000.0, 1500.0};
+    double sequence[] = {500.0, 1000.0, 1500.0};
     return looped_interval(sequence, 3);
 #endif
 }
 
-void button_thread(void (*on_press)())
+void button_thread(void (*on_event)())
 {
     while (1)
     {
 #if METHOD != 5
-        k_msleep((int)next_press_dt());
-        on_press();
+        k_msleep((int)next_event_dt());
+        on_event();
 #else
         // Stub for real button presses, not implemented.
         k_sleep(K_FOREVER); // To prevent busy waiting, because this is not implemented.
