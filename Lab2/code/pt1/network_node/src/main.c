@@ -3,12 +3,12 @@
 // Declare pointer to configuration at reserved address.
 volatile boot_config_t *config = (volatile boot_config_t *)CONFIG_ADDR;
 
-// Stores the current connections, restrict to 8 for "IoT performance reasons".
-struct bt_conn *default_connections[8];
+// Stores the current connections.
+struct bt_conn *default_connections[MAX_CONNECTIONS];
 short num_connections = 0;
 
 // Stores the GATT characteristic handle per connection, filled during discovery.
-static uint16_t char_handles[8];
+static uint16_t char_handles[MAX_CONNECTIONS];
 
 struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0xACDC); // Custom service UUID
 struct bt_uuid_16 char_uuid = BT_UUID_INIT_16(0xDEAF);    // Custom characteristic UUID
@@ -18,11 +18,7 @@ static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
 // True once this node has triggered its downstream scan and completed the chain.
 static bool network_formed = false;
 
-// Forward declarations
-static int start_scan(void);
-static void role_SOURCE(void);
-static void role_TARGET(void);
-
+// KWork item associated with scan_work_handler.
 static struct k_work_delayable scan_work;
 
 static void scan_work_handler(struct k_work *work)
@@ -52,7 +48,8 @@ static void led_set(bool on)
     gpio_pin_set_dt(&led, on ? 1 : 0);
 }
 
-static struct bt_gatt_write_params write_params[8];
+// Write parameters for each connection.
+static struct bt_gatt_write_params write_params[MAX_CONNECTIONS];
 
 static void write_cb(struct bt_conn *conn, uint8_t err,
                      struct bt_gatt_write_params *params)
@@ -185,7 +182,8 @@ BT_GATT_SERVICE_DEFINE(button_svc,
                            NULL, on_write, NULL),
 );
 
-static struct bt_gatt_discover_params disc_params[8];
+// Parameters for the dicovery of the characteristic handle, stored per connection.
+static struct bt_gatt_discover_params disc_params[MAX_CONNECTIONS];
 
 static uint8_t discover_cb(struct bt_conn *conn,
                             const struct bt_gatt_attr *attr,
