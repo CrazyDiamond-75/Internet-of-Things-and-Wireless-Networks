@@ -1,0 +1,40 @@
+\input{../praeambel}
+
+\begin{document}
+\maketitle
+
+% Counter for lab
+\setcounter{section}{2}
+
+%% Skip the first one
+\setcounter{exercise}{1}
+
+\section*{Lab 2}
+
+\begin{exercise}[Evaluation and Discussion of Part 1]
+    When all nodes are connected in the simulation, there is no noticeable delay between when a button event is measured, and when it is received and displayed on other devices.
+    From a simulated trace, we observed a latency of roughly 150ms between when a message is sent from a device to when the message is relayed from that device.
+    This adds up to just short off 450ms between when the button is pressed or released and the last node displays that information.
+    The amount of advertisements which are sent may increase that latency, as we noticed, that when we do not stop advertising, the latency of one hop may increase to 400ms.
+
+    Our algorithm should work in any node configuration, as it works by connecting to all nearby nodes and relaying messages to all nodes if they are up-to-date and the destination is not the node which sent the message.
+    This would also work if we would just relay the information by broadcasting it through advertisements, but this would not be as efficient and be limited to small data.
+    Another alternative is implementing a routing algorithm, but we decided against that, since every node except the node, where the button is pressed, is interested in the current state of the button.
+    Thus, we know that we always have to send everything to everyone, and the algorithm we used always finds a shortest path, because it sends to every neighbour.
+    In these algorithms we would have problems when increasing the number of nodes, either we start jamming communications, or the routing algorithms take too long to configure or become to complex for IoT devices.
+    In our algorithm the job stays simple, as there would only be a constant overhead for each node introduced.
+
+    We did not observe any message losses in the configuration with constant signal strength up to distance 11.
+    The network just takes some time to initialize, so the first button presses are often lost to the last nodes.
+    When using the linear signal strength function to model signal loss, a lot of packets get dropped and the nodes do not always connect.
+    The fourth node never received any message as it had the most problems upholding a strong connection.
+    As seen in \lstinline|capture_lossy.pcapng| by filtering with \lstinline|btatt.value| to see write requests, the latency increased by a lot and many messages had to be resent from the same device.
+    E.g., the message containing timestamp \lstinline|5| was sent six times in total and only arrived at the third node, which took more than 4 seconds.
+    Optimally, the message would only have to be sent twice.
+\end{exercise}
+
+\setcounter{exercise}{3}
+
+\begin{exercise}[Evaluation and Discussion of Part 3]
+\end{exercise}
+\end{document}
