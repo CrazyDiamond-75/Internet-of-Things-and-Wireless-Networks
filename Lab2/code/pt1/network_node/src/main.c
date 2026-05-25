@@ -16,6 +16,7 @@ struct bt_uuid_16 char_uuid = BT_UUID_INIT_16(0xDEAF);    // Custom characterist
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
 
 // True once this node has triggered its downstream scan and completed the chain.
+// TODO: Can be deleted, as it is unused.
 static bool network_formed = false;
 
 // KWork item associated with scan_work_handler.
@@ -23,7 +24,8 @@ static struct k_work_delayable scan_work;
 
 static void scan_work_handler(struct k_work *work)
 {
-    if (network_formed) return;
+    if (network_formed)
+        return;
 
     int err = start_scan();
     if (err)
@@ -64,9 +66,12 @@ static void send_message_to_all(message_t *msg, int skip_index)
 {
     for (short i = 0; i < num_connections; i++)
     {
-        if (i == skip_index)                continue;
-        if (default_connections[i] == NULL) continue;
-        if (char_handles[i] == 0)           continue;
+        if (i == skip_index)
+            continue;
+        if (default_connections[i] == NULL)
+            continue;
+        if (char_handles[i] == 0)
+            continue;
 
         write_params[i].func = write_cb;
         write_params[i].handle = char_handles[i];
@@ -166,7 +171,11 @@ static ssize_t on_write(struct bt_conn *conn,
     int src = -1;
     for (short i = 0; i < num_connections; i++)
     {
-        if (default_connections[i] == conn) { src = i; break; }
+        if (default_connections[i] == conn)
+        {
+            src = i;
+            break;
+        }
     }
 
     redirect_message_TARGET(msg, src);
@@ -175,19 +184,18 @@ static ssize_t on_write(struct bt_conn *conn,
 
 // Expose our characteristic so neighbours can write to us.
 BT_GATT_SERVICE_DEFINE(button_svc,
-    BT_GATT_PRIMARY_SERVICE(&service_uuid),
-    BT_GATT_CHARACTERISTIC(&char_uuid.uuid,
-                           BT_GATT_CHRC_WRITE_WITHOUT_RESP,
-                           BT_GATT_PERM_WRITE,
-                           NULL, on_write, NULL),
-);
+                       BT_GATT_PRIMARY_SERVICE(&service_uuid),
+                       BT_GATT_CHARACTERISTIC(&char_uuid.uuid,
+                                              BT_GATT_CHRC_WRITE_WITHOUT_RESP,
+                                              BT_GATT_PERM_WRITE,
+                                              NULL, on_write, NULL));
 
 // Parameters for the dicovery of the characteristic handle, stored per connection.
 static struct bt_gatt_discover_params disc_params[MAX_CONNECTIONS];
 
 static uint8_t discover_cb(struct bt_conn *conn,
-                            const struct bt_gatt_attr *attr,
-                            struct bt_gatt_discover_params *params)
+                           const struct bt_gatt_attr *attr,
+                           struct bt_gatt_discover_params *params)
 {
     if (!attr)
     {
@@ -221,9 +229,14 @@ static int discover_characteristic(struct bt_conn *conn)
     int idx = -1;
     for (short i = 0; i < num_connections; i++)
     {
-        if (default_connections[i] == conn) { idx = i; break; }
+        if (default_connections[i] == conn)
+        {
+            idx = i;
+            break;
+        }
     }
-    if (idx < 0) return -ENOENT;
+    if (idx < 0)
+        return -ENOENT;
 
     disc_params[idx].uuid = &char_uuid.uuid;
     disc_params[idx].func = discover_cb;
@@ -252,20 +265,22 @@ static void connected(struct bt_conn *conn, uint8_t err)
     printk("Connected\n");
 
     // ... and start service discovery.
+
+    // Note: I uncommented the following, as it introduced race conditions.
     // Stop scanning and advertising once we have all the connections we need.
     // SOURCE only connects upstream (1 connection).
     // TARGET connects to one upstream and one downstream (2 connections).
-    if (config->role == ROLE_SOURCE && num_connections >= 1)
-    {
-        bt_le_scan_stop();
-        bt_le_adv_stop();
-    }
-    if (config->role == ROLE_TARGET && num_connections >= 2)
-    {
-        bt_le_scan_stop();
-        bt_le_adv_stop();
-        network_formed = true;
-    }
+    // if (config->role == ROLE_SOURCE && num_connections >= 1)
+    // {
+    //     bt_le_scan_stop();
+    //     bt_le_adv_stop();
+    // }
+    // if (config->role == ROLE_TARGET && num_connections >= 2)
+    // {
+    //     bt_le_scan_stop();
+    //     bt_le_adv_stop();
+    //     network_formed = true;
+    // }
 
     int disc_err = discover_characteristic(conn);
     // Close the connection if discovery failed, and restart scanning.
@@ -333,17 +348,23 @@ static bool ad_parse(struct net_buf_simple *data)
 static void device_found(const bt_addr_le_t *addr, int8_t rssi,
                          uint8_t type, struct net_buf_simple *ad)
 {
-    // Convert the address to a string for printing.
-    // SOURCE only needs one connection; ignore further advertisements.
-    if (config->role == ROLE_SOURCE && num_connections >= 1)
+    // Ignore further advertisements when the network is formed.
+    if (config->role == ROLE_SOURCE && network_formed)
     {
         return;
     }
 
+    // Ignore scan response reports.
+    if (type == BT_GAP_ADV_TYPE_SCAN_RSP)
+    {
+        return;
+    }
+
+    // Convert the address to a string for printing.
     char addr_str[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 
-    // Check if the advertised device has the temperature service UUID in its advertising data.
+    // Check if the advertised device has the right service UUID in its advertising data.
     if (!ad_parse(ad))
     {
         printk("Wrong service, ignoring device: %s\n", addr_str);
@@ -354,7 +375,8 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi,
     // Skip devices we are already connected to.
     for (short i = 0; i < num_connections; i++)
     {
-        if (default_connections[i] == NULL) continue;
+        if (default_connections[i] == NULL)
+            continue;
         const bt_addr_le_t *peer = bt_conn_get_dst(default_connections[i]);
         if (bt_addr_le_cmp(peer, addr) == 0)
         {
@@ -440,11 +462,11 @@ static void bt_ready(int err)
     }
     printk("Bluetooth initialized\n");
 
-    // ... else proceed to start scanning.
+    // ... else proceed to start scanning and advertising.
     k_work_init_delayable(&scan_work, scan_work_handler);
 
     start_advertise();
-    k_work_schedule(&scan_work, K_MSEC(config->node_id * 2000));
+    k_work_schedule(&scan_work, K_NO_WAIT);
 }
 
 static void role_SOURCE(void)
@@ -487,12 +509,6 @@ static void role_TARGET(void)
     }
 
     printk("bt_enable called\n");
-
-    // Sleep forever, all work is done in callbacks.
-    while (1)
-    {
-        k_sleep(K_FOREVER);
-    }
 }
 
 int main(void)
@@ -513,6 +529,11 @@ int main(void)
         return -1;
     }
 
-    k_sleep(K_FOREVER);
+    // Sleep forever, all work is done in callbacks.
+    while (1)
+    {
+        k_sleep(K_FOREVER);
+    }
+
     return 0;
 }
