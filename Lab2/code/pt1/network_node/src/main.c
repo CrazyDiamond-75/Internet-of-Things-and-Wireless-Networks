@@ -443,13 +443,23 @@ static const struct bt_data ad[] = {
 
 static void start_advertise(void)
 {
+    char addr_s[BT_ADDR_LE_STR_LEN];
+    bt_addr_le_t addr = {0};
+    size_t count = 1;
+
+    // Maybe change to wider delay between advertisements as their traffic may jam the network if they are too many.
     int err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), NULL, 0);
     if (err)
     {
         printk("Advertising start failed (%d)\n", err);
         return;
     }
-    printk("Advertising started\n");
+
+    // Get the Bluetooth address of the device and print it.
+    bt_id_get(&addr, &count);
+    bt_addr_le_to_str(&addr, addr_s, sizeof(addr_s));
+
+    printk("Brodcaster started, advertising as %s\n", addr_s);
 }
 
 static void bt_ready(int err)
