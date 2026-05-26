@@ -19,6 +19,12 @@ static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
 // TODO: Can be deleted, as it is unused.
 static bool network_formed = false;
 
+// The advertisement all nodes use to advertise our service.
+static const struct bt_data ad[] = {
+    BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+    BT_DATA_BYTES(BT_DATA_UUID16_ALL, BT_UUID_16_ENCODE(0xACDC)),
+};
+
 // KWork item associated with scan_work_handler.
 static struct k_work_delayable scan_work;
 
@@ -346,7 +352,7 @@ static bool ad_parse(struct net_buf_simple *data)
 }
 
 static void device_found(const bt_addr_le_t *addr, int8_t rssi,
-                         uint8_t type, struct net_buf_simple *ad)
+                         uint8_t type, struct net_buf_simple *ad_foreign)
 {
     // Ignore further advertisements when the network is formed.
     if (config->role == ROLE_SOURCE && network_formed)
@@ -365,7 +371,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi,
     bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 
     // Check if the advertised device has the right service UUID in its advertising data.
-    if (!ad_parse(ad))
+    if (!ad_parse(ad_foreign))
     {
         printk("Wrong service, ignoring device: %s\n", addr_str);
         return;
@@ -435,11 +441,6 @@ static int start_scan(void)
     printk("Scanning started\n");
     return 0;
 }
-
-static const struct bt_data ad[] = {
-    BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-    BT_DATA_BYTES(BT_DATA_UUID16_ALL, BT_UUID_16_ENCODE(0xACDC)),
-};
 
 static void start_advertise(void)
 {
