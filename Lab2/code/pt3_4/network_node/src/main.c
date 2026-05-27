@@ -13,7 +13,12 @@ static uint16_t char_handles[MAX_CONNECTIONS];
 struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0xACDC); // Custom service UUID
 struct bt_uuid_16 char_uuid = BT_UUID_INIT_16(0xDEAF);    // Custom characteristic UUID
 
-static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
+// Currently measured temperature and humidity, usage in temperature_humidity.h
+static uint8_t temperature;
+static uint8_t humidity;
+//
+static uint32_t measurement_counter = 0;
+static int64_t time_since_boot;
 
 // True once this node has triggered its downstream scan and completed the chain.
 // TODO: Can be deleted, as it is unused.
@@ -39,21 +44,6 @@ static void scan_work_handler(struct k_work *work)
         // Controller still busy, retry.
         k_work_schedule(&scan_work, K_MSEC(1000));
     }
-}
-
-static void led_init(void)
-{
-    if (!device_is_ready(led.port))
-    {
-        printk("LED GPIO not ready\n");
-        return;
-    }
-    gpio_pin_configure_dt(&led, GPIO_OUTPUT_INACTIVE);
-}
-
-static void led_set(bool on)
-{
-    gpio_pin_set_dt(&led, on ? 1 : 0);
 }
 
 // Write parameters for each connection.
@@ -103,60 +93,24 @@ static void configure(void)
     printk("Configuration: role=%u node_id=%u\n", config->role, config->node_id);
 }
 
-static void redirect_message_TARGET(message_t message, int source_index)
+static void redirect_message_SOURCE(message_t message, int source_index)
 {
-    // Static variables to keep track of the last button event and its timestamp, which are used to determine if a received message is recent enough.
-    static uint32_t lastTimestamp = 0;
-    static uint8_t currEvent = RELEASED;
-
-    if (message.timestamp > lastTimestamp)
-    {
-        lastTimestamp = message.timestamp;
-        currEvent = message.event;
-    }
-    else
-    {
-        return;
-    }
-
-    if (currEvent == PRESSED)
-    {
-        printk("Button pressed at timestamp %u\n", lastTimestamp);
-        led_set(true);
-    }
-    else if (currEvent == RELEASED)
-    {
-        printk("Button released at timestamp %u\n", lastTimestamp);
-        led_set(false);
-    }
-    else
-    {
-        printk("Malformed button event: 0x%02X\n", currEvent);
-        return;
-    }
+    printk("Redirecting measurement of N%d retrieved from N%d", message.nodeID, source_index);
 
     send_message_to_all(&message, source_index);
 }
 
 static void send_message_SOURCE(void)
 {
-    static uint32_t timestamp = 0;
-    static uint8_t event = PRESSED; // The button is pressed, when the first message should be sent.
+    time_since_boot = k_uptime_get();
 
     message_t message = {
-        .timestamp = timestamp,
-        .event = event,
+        .timestamp = time_since_boot,
+        .humidity = humidity,
+        .temperature = temperature,
+        .nodeID = config->node_id,
     };
 
-    timestamp++;
-    event = (event == PRESSED) ? RELEASED : PRESSED;
-
-    if (message.event == PRESSED)
-        printk("Button pressed at timestamp %u\n", message.timestamp);
-    else
-        printk("Button released at timestamp %u\n", message.timestamp);
-
-    led_set(message.event == PRESSED);
     send_message_to_all(&message, -1);
 }
 
@@ -173,6 +127,12 @@ static ssize_t on_write(struct bt_conn *conn,
     message_t msg;
     memcpy(&msg, buf, sizeof(msg));
 
+    // Stop early for the TARGET node (sink), as it does not have to relay the message.
+    if (config->role == ROLE_TARGET)
+    {
+        return len;
+    }
+
     // Find which connection index this came from.
     int src = -1;
     for (short i = 0; i < num_connections; i++)
@@ -184,7 +144,7 @@ static ssize_t on_write(struct bt_conn *conn,
         }
     }
 
-    redirect_message_TARGET(msg, src);
+    redirect_message_SOURCE(msg, src);
     return len;
 }
 
@@ -473,21 +433,24 @@ static void bt_ready(int err)
     }
     printk("Bluetooth initialized\n");
 
-    // ... else proceed to start scanning and advertising.
-    k_work_init_delayable(&scan_work, scan_work_handler);
+    // ... else proceed to start scanning (if we're a source node) and advertising
+    if (config->role == ROLE_SOURCE)
+        k_work_init_delayable(&scan_work, scan_work_handler);
 
     start_advertise();
-    k_work_schedule(&scan_work, K_NO_WAIT);
+
+    if (config->role == ROLE_SOURCE)
+        k_work_schedule(&scan_work, K_NO_WAIT);
 }
 
 static void role_SOURCE(void)
 {
+
     // 1. Initialize Bluetooth.
     // 2. Start advertising.
     // 3. Connect to all nodes in range.
 
     printk("Starting source node\n");
-    led_init();
 
     // Initialize Bluetooth, and proceed to bt_ready.
     int err = bt_enable(bt_ready);
@@ -498,19 +461,29 @@ static void role_SOURCE(void)
 
     printk("bt_enable called\n");
 
-    // 4. Start sending data to all connected nodes at intervals determined by next_press_dt().
-    button_thread(send_message_SOURCE);
+    // 4. Start sending data to all connected nodes at 200ms interval.
+    while (1)
+    {
+        k_sleep(K_MSEC(200));
+        measurement_counter++;
+
+        int16_t human_humi = human_readable_humi(humidity);
+        int16_t human_temp = human_readable_temp(temperature);
+
+        printk("Measured the following:\n<%d>;<%d>;<%d.%d°C>;<%d.%d\%>;<%dms>;<%dms>\n", config->node_id, measurement_counter, human_temp / 10, abs(human_temp % 10), human_humi / 10, abs(human_humi % 10), time_since_boot, time_since_boot);
+        
+        // Send that measurement to connected nodes.
+        send_message_SOURCE();
+    }
 }
 
 static void role_TARGET(void)
 {
     // 1. Initialize Bluetooth.
-    // 2. Start advertising.
-    // 3. Connect to all nodes in range.
-    // 4. When a write request is received, call redirect_message_TARGET() with the received message.
+    // 2. Start advertising, but don't scan
+    // 3. Collect measurements and print own measurements
 
     printk("Starting target node\n");
-    led_init();
 
     // Initialize Bluetooth, and proceed to bt_ready.
     int err = bt_enable(bt_ready);

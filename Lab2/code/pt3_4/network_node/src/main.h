@@ -11,10 +11,10 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/uuid.h>
 #include <bluetooth/gatt.h>
-#include <drivers/gpio.h>
 #include <bluetooth/conn.h>
 
 #include <button.h>
+#include <temperature_humidity.h>
 
 /* Struct used to pass external information on boot to the main thread. */
 typedef struct
@@ -24,9 +24,10 @@ typedef struct
     uint32_t node_id;
 } boot_config_t;
 
-/* Messages we want to send contain a button event (PRESSED or RELEASED) and a timestamp, which is used if a received message is recent enough. */
+/* Messages we want to send contain a node ID, a timestamp, and temperature and humidity data. */
 typedef struct
 {
+    uint8_t nodeID; // Node from which the measurement originates from.
     uint32_t timestamp;
     uint8_t temperature; // Represent as fixed-point number in range -25°C to 200°C.
     uint8_t humidity; // ... in range 0 to 1.
@@ -92,12 +93,6 @@ static int discover_characteristic(struct bt_conn *conn);
 static uint8_t discover_cb(struct bt_conn *conn,
                            const struct bt_gatt_attr *attr,
                            struct bt_gatt_discover_params *params);
-
-/* Initialises the GPIO led pin. */
-static void led_init(void);
-
-/* Sets the led either on or off. */
-static void led_set(bool on);
 
 /* Callback for outgoing write requests. Only used for error handling. */
 static void write_cb(struct bt_conn *conn, uint8_t err,
