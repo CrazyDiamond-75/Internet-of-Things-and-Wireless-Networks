@@ -97,7 +97,17 @@ static void configure(void)
 
 static void redirect_message_SOURCE(message_t message, int source_index)
 {
+    static int64_t last_timestamps[MAX_CONNECTIONS] = {0};
+
+    // Check if a message is new enough to be forwarded.
+    if (message.timestamp <= last_timestamps[source_index])
+    {
+        printk("Received old message from N%d, ignoring\n", message.nodeID);
+        return;
+    }
+
     printk("Redirecting measurement of N%d retrieved from N%d", message.nodeID, source_index);
+    last_timestamps[message.nodeID] = message.timestamp;
 
     send_message_to_all(&message, source_index);
 }

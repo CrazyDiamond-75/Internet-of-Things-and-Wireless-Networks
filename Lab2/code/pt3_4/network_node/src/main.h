@@ -13,12 +13,11 @@
 #include <bluetooth/gatt.h>
 #include <bluetooth/conn.h>
 
-#include <button.h>
-#include <temperature_humidity.h>
-
 #include <random/rand32.h>
 #include <drivers/gpio.h>
 #include <stdlib.h>
+
+#include <temperature_humidity.h>
 
 /* Struct used to pass external information on boot to the main thread. */
 typedef struct
@@ -44,18 +43,6 @@ enum
     ROLE_SOURCE = 0,
     ROLE_TARGET = 1
 };
-
-// Fixed-point random temperature: -250..2000 (= -25.0°C to 200.0°C)
-static inline int16_t rand_temperature(void)
-{
-    return (int16_t)(sys_rand32_get() % 2251) - 250;
-}
-
-// Fixed-point random humidity: 0..1000 (= 0.0% to 100.0%)
-static inline uint16_t rand_humidity(void)
-{
-    return (uint16_t)(sys_rand32_get() % 1001);
-}
 
 /* Reserved address for role configuration. */
 #define CONFIG_ADDR 0x2003F000

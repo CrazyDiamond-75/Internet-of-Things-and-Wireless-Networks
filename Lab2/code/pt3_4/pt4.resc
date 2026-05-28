@@ -107,13 +107,13 @@ macro reset
     mach set "device_2"
     sysbus LoadELF $firmware_bin
     sysbus WriteDoubleWord 0x2003F000 0xDEADBEEF
-    sysbus WriteDoubleWord 0x2003F004 1
+    sysbus WriteDoubleWord 0x2003F004 0
     sysbus WriteDoubleWord 0x2003F008 1
 
     mach set "device_3"
     sysbus LoadELF $firmware_bin
     sysbus WriteDoubleWord 0x2003F000 0xDEADBEEF
-    sysbus WriteDoubleWord 0x2003F004 1
+    sysbus WriteDoubleWord 0x2003F004 0
     sysbus WriteDoubleWord 0x2003F008 2
 
     mach set "device_4"
