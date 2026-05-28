@@ -1,5 +1,10 @@
 #include "main.h"
 
+#define SW0_NODE DT_ALIAS(sw0)
+static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET(SW0_NODE, gpios);
+static struct gpio_callback button_cb_data;
+static bool conn_ready[MAX_CONNECTIONS] = {false};
+
 // Declare pointer to configuration at reserved address.
 volatile boot_config_t *config = (volatile boot_config_t *)CONFIG_ADDR;
 
@@ -13,10 +18,6 @@ static uint16_t char_handles[MAX_CONNECTIONS];
 struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0xACDC); // Custom service UUID
 struct bt_uuid_16 char_uuid = BT_UUID_INIT_16(0xDEAF);    // Custom characteristic UUID
 
-// Currently measured temperature and humidity, usage in temperature_humidity.h
-static uint8_t temperature;
-static uint8_t humidity;
-//
 static uint32_t measurement_counter = 0;
 static int64_t time_since_boot;
 
@@ -33,6 +34,17 @@ static const struct bt_data ad[] = {
 // KWork item associated with scan_work_handler.
 static struct k_work_delayable scan_work;
 
+static void button_pressed(const struct device *dev,
+                           struct gpio_callback *cb, uint32_t pins)
+{
+    if (!network_formed)
+    {
+        network_formed = true;
+        printk("Button pressed — starting network\n");
+        k_work_schedule(&scan_work, K_NO_WAIT);
+    }
+}
+
 static void scan_work_handler(struct k_work *work)
 {
     if (network_formed)
@@ -46,18 +58,6 @@ static void scan_work_handler(struct k_work *work)
     }
 }
 
-// Write parameters for each connection.
-static struct bt_gatt_write_params write_params[MAX_CONNECTIONS];
-
-static void write_cb(struct bt_conn *conn, uint8_t err,
-                     struct bt_gatt_write_params *params)
-{
-    if (err)
-    {
-        printk("Write failed, error (%u)\n", err);
-    }
-}
-
 static void send_message_to_all(message_t *msg, int skip_index)
 {
     for (short i = 0; i < num_connections; i++)
@@ -68,14 +68,16 @@ static void send_message_to_all(message_t *msg, int skip_index)
             continue;
         if (char_handles[i] == 0)
             continue;
+        if (!conn_ready[i])
+            continue;
 
-        write_params[i].func = write_cb;
-        write_params[i].handle = char_handles[i];
-        write_params[i].offset = 0;
-        write_params[i].data = msg;
-        write_params[i].length = sizeof(message_t);
+        int err = bt_gatt_write_without_response(
+            default_connections[i],
+            char_handles[i],
+            msg,
+            sizeof(message_t),
+            false);
 
-        int err = bt_gatt_write(default_connections[i], &write_params[i]);
         if (err)
         {
             printk("Write to conn[%d] failed (%d)\n", i, err);
@@ -106,9 +108,10 @@ static void send_message_SOURCE(void)
 
     message_t message = {
         .timestamp = time_since_boot,
-        .humidity = humidity,
-        .temperature = temperature,
+        .humidity = rand_humidity(),
+        .temperature = rand_temperature(),
         .nodeID = config->node_id,
+        .counter = measurement_counter,
     };
 
     send_message_to_all(&message, -1);
@@ -127,9 +130,17 @@ static ssize_t on_write(struct bt_conn *conn,
     message_t msg;
     memcpy(&msg, buf, sizeof(msg));
 
-    // Stop early for the TARGET node (sink), as it does not have to relay the message.
+    // Stop early for the TARGET node (sink), print the received measurement with tx-time.
     if (config->role == ROLE_TARGET)
     {
+        int64_t rx_time = k_uptime_get();
+        int64_t tx_time = rx_time - msg.timestamp;
+
+        printk("%u;%u;%d.%d;%u.%u;%lld;%lld\n",
+               msg.nodeID, msg.counter,
+               msg.temperature / 10, abs(msg.temperature % 10),
+               msg.humidity / 10, msg.humidity % 10,
+               msg.timestamp, tx_time);
         return len;
     }
 
@@ -166,6 +177,16 @@ static uint8_t discover_cb(struct bt_conn *conn,
     if (!attr)
     {
         printk("Discovery complete\n");
+
+        // Mark connection as ready for writes only after full discovery.
+        for (short i = 0; i < num_connections; i++)
+        {
+            if (default_connections[i] == conn)
+            {
+                conn_ready[i] = true;
+                break;
+            }
+        }
 
         // TARGET nodes scan for their downstream neighbour after discovery,
         // ensuring the BLE controller is idle before starting a new scan.
@@ -224,6 +245,7 @@ static void connected(struct bt_conn *conn, uint8_t err)
     }
 
     // Else, connection succeeded, save the connection reference...
+    conn_ready[num_connections] = false;
     default_connections[num_connections] = bt_conn_ref(conn);
     char_handles[num_connections] = 0;
     num_connections++;
@@ -467,23 +489,43 @@ static void role_SOURCE(void)
         k_sleep(K_MSEC(200));
         measurement_counter++;
 
-        int16_t human_humi = human_readable_humi(humidity);
-        int16_t human_temp = human_readable_temp(temperature);
+        int16_t t = rand_temperature();
+        uint16_t h = rand_humidity();
+        int64_t ts = k_uptime_get();
+        time_since_boot = ts;
 
-        printk("Measured the following:\n<%d>;<%d>;<%d.%d°C>;<%d.%d\%>;<%dms>;<%dms>\n", config->node_id, measurement_counter, human_temp / 10, abs(human_temp % 10), human_humi / 10, abs(human_humi % 10), time_since_boot, time_since_boot);
-        
-        // Send that measurement to connected nodes.
-        send_message_SOURCE();
+        printk("%u;%u;%d.%d;%u.%u;%lld;0\n",
+               config->node_id, measurement_counter,
+               t / 10, abs(t % 10),
+               h / 10, h % 10,
+               ts);
+
+        // Only send when at least one peer is ready.
+        bool any_ready = false;
+        for (short i = 0; i < num_connections; i++)
+            if (conn_ready[i]) { any_ready = true; break; }
+
+        if (any_ready)
+            send_message_SOURCE();
     }
 }
 
 static void role_TARGET(void)
 {
     // 1. Initialize Bluetooth.
-    // 2. Start advertising, but don't scan
+    // 2. Start advertising, wait for button press to start scanning.
     // 3. Collect measurements and print own measurements
 
     printk("Starting target node\n");
+
+    // Init button to trigger network formation on press.
+    gpio_pin_configure_dt(&button, GPIO_INPUT);
+    gpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_TO_ACTIVE);
+    gpio_init_callback(&button_cb_data, button_pressed, BIT(button.pin));
+    gpio_add_callback(button.port, &button_cb_data);
+
+    // TARGET needs scan_work for button-triggered scan and post-discovery downstream scan.
+    k_work_init_delayable(&scan_work, scan_work_handler);
 
     // Initialize Bluetooth, and proceed to bt_ready.
     int err = bt_enable(bt_ready);
@@ -493,6 +535,23 @@ static void role_TARGET(void)
     }
 
     printk("bt_enable called\n");
+
+    // Generate and print own measurements every 200ms.
+    while (1)
+    {
+        k_sleep(K_MSEC(200));
+        measurement_counter++;
+
+        int16_t  t  = rand_temperature();
+        uint16_t h  = rand_humidity();
+        int64_t  ts = k_uptime_get();
+
+        printk("%u;%u;%d.%d;%u.%u;%lld;0\n",
+               config->node_id, measurement_counter,
+               t / 10, abs(t % 10),
+               h / 10, h % 10,
+               ts);
+    }
 }
 
 int main(void)

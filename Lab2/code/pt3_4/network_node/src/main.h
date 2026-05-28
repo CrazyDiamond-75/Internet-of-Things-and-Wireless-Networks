@@ -16,6 +16,10 @@
 #include <button.h>
 #include <temperature_humidity.h>
 
+#include <random/rand32.h>
+#include <drivers/gpio.h>
+#include <stdlib.h>
+
 /* Struct used to pass external information on boot to the main thread. */
 typedef struct
 {
@@ -28,9 +32,10 @@ typedef struct
 typedef struct
 {
     uint8_t nodeID; // Node from which the measurement originates from.
-    uint32_t timestamp;
-    uint8_t temperature; // Represent as fixed-point number in range -25°C to 200°C.
-    uint8_t humidity; // ... in range 0 to 1.
+    uint32_t counter;
+    int16_t temperature; // Represent as fixed-point number in range -250 to 2000.
+    uint16_t humidity; // ... in range 0 to 1000.
+    int64_t timestamp;
 } message_t;
 
 /* Corresponds to boot_config.role. */
@@ -39,6 +44,18 @@ enum
     ROLE_SOURCE = 0,
     ROLE_TARGET = 1
 };
+
+// Fixed-point random temperature: -250..2000 (= -25.0°C to 200.0°C)
+static inline int16_t rand_temperature(void)
+{
+    return (int16_t)(sys_rand32_get() % 2251) - 250;
+}
+
+// Fixed-point random humidity: 0..1000 (= 0.0% to 100.0%)
+static inline uint16_t rand_humidity(void)
+{
+    return (uint16_t)(sys_rand32_get() % 1001);
+}
 
 /* Reserved address for role configuration. */
 #define CONFIG_ADDR 0x2003F000
