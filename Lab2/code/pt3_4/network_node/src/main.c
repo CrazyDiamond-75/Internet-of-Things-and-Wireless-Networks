@@ -1,9 +1,9 @@
 #include "main.h"
 
+// Button related stuff
 #define SW0_NODE DT_ALIAS(sw0)
 static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET(SW0_NODE, gpios);
 static struct gpio_callback button_cb_data;
-static bool conn_ready[MAX_CONNECTIONS] = {false};
 
 // Declare pointer to configuration at reserved address.
 volatile boot_config_t *config = (volatile boot_config_t *)CONFIG_ADDR;
@@ -12,8 +12,14 @@ volatile boot_config_t *config = (volatile boot_config_t *)CONFIG_ADDR;
 struct bt_conn *default_connections[MAX_CONNECTIONS];
 short num_connections = 0;
 
+// Store whether a connection is ready for write requests, set after discovery.
+static bool conn_ready[MAX_CONNECTIONS] = {false};
+
 // Stores the GATT characteristic handle per connection, filled during discovery.
 static uint16_t char_handles[MAX_CONNECTIONS];
+
+// Messages for each connection, stored explicitly because write requests are handled asynchronously.
+static message_t messages[MAX_CONNECTIONS];
 
 struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0xACDC); // Custom service UUID
 struct bt_uuid_16 char_uuid = BT_UUID_INIT_16(0xDEAF);    // Custom characteristic UUID
@@ -39,7 +45,6 @@ static void button_pressed(const struct device *dev,
 {
     if (!network_formed)
     {
-        network_formed = true;
         printk("Button pressed — starting network\n");
         k_work_schedule(&scan_work, K_NO_WAIT);
     }
@@ -58,6 +63,16 @@ static void scan_work_handler(struct k_work *work)
     }
 }
 
+// Used explicitly when sending write requests with response.
+// static void write_cb(struct bt_conn *conn, uint8_t err,
+//                      struct bt_gatt_write_params *params)
+// {
+//     if (err)
+//     {
+//         printk("Write failed, error (%u)\n", err);
+//     }
+// }
+
 static void send_message_to_all(message_t *msg, int skip_index)
 {
     for (short i = 0; i < num_connections; i++)
@@ -71,10 +86,21 @@ static void send_message_to_all(message_t *msg, int skip_index)
         if (!conn_ready[i])
             continue;
 
+        // Copy because message is sent asynchronously.
+        messages[i] = *msg;
+
+        // writes[i].params.func = write_cb;
+        // writes[i].params.handle = char_handles[i];
+        // writes[i].params.offset = 0;
+        // writes[i].params.data = &writes[i].msg;
+        // writes[i].params.length = sizeof(message_t);
+
+        // int err = bt_gatt_write(default_connections[i], &writes[i].params);
+
         int err = bt_gatt_write_without_response(
             default_connections[i],
             char_handles[i],
-            msg,
+            &messages[i],
             sizeof(message_t),
             false);
 
@@ -106,7 +132,7 @@ static void redirect_message_SOURCE(message_t message, int source_index)
         return;
     }
 
-    printk("Redirecting measurement of N%d retrieved from N%d", message.nodeID, source_index);
+    printk("Redirecting measurement of N%d retrieved from N%d\n", message.nodeID, source_index);
     last_timestamps[message.nodeID] = message.timestamp;
 
     send_message_to_all(&message, source_index);
@@ -170,7 +196,7 @@ static ssize_t on_write(struct bt_conn *conn,
 }
 
 // Expose our characteristic so neighbours can write to us.
-BT_GATT_SERVICE_DEFINE(button_svc,
+BT_GATT_SERVICE_DEFINE(service,
                        BT_GATT_PRIMARY_SERVICE(&service_uuid),
                        BT_GATT_CHARACTERISTIC(&char_uuid.uuid,
                                               BT_GATT_CHRC_WRITE_WITHOUT_RESP,
@@ -198,9 +224,9 @@ static uint8_t discover_cb(struct bt_conn *conn,
             }
         }
 
-        // TARGET nodes scan for their downstream neighbour after discovery,
+        // SOURCE nodes scan for their downstream neighbour after discovery,
         // ensuring the BLE controller is idle before starting a new scan.
-        if (config->role == ROLE_TARGET && !network_formed)
+        if (config->role == ROLE_SOURCE && !network_formed)
         {
             printk("Triggering downstream scan\n");
             k_work_schedule(&scan_work, K_MSEC(500));
@@ -212,13 +238,17 @@ static uint8_t discover_cb(struct bt_conn *conn,
     {
         if (default_connections[i] == conn)
         {
-            // attr->handle is the declaration handle; +1 is the value handle.
-            char_handles[i] = attr->handle + 1;
+            // attr-user_data contains a pointer to the characteristic metadata, including its handle.
+            const struct bt_gatt_chrc *gatt_chrc =
+                attr->user_data;
+
+            char_handles[i] = gatt_chrc->value_handle;
+
             printk("conn[%d] char handle: %u\n", i, char_handles[i]);
             break;
         }
     }
-    return BT_GATT_ITER_STOP;
+    return BT_GATT_ITER_CONTINUE;
 }
 
 static int discover_characteristic(struct bt_conn *conn)
@@ -264,21 +294,24 @@ static void connected(struct bt_conn *conn, uint8_t err)
 
     // ... and start service discovery.
 
-    // Note: I uncommented the following, as it introduced race conditions.
+    // Note: I initially uncommented the following, as it introduced race conditions for part 1.
+    // Can again be uncommented if we want to support arbitrary graphs.
+
     // Stop scanning and advertising once we have all the connections we need.
     // SOURCE only connects upstream (1 connection).
     // TARGET connects to one upstream and one downstream (2 connections).
-    // if (config->role == ROLE_SOURCE && num_connections >= 1)
-    // {
-    //     bt_le_scan_stop();
-    //     bt_le_adv_stop();
-    // }
-    // if (config->role == ROLE_TARGET && num_connections >= 2)
-    // {
-    //     bt_le_scan_stop();
-    //     bt_le_adv_stop();
-    //     network_formed = true;
-    // }
+    if (config->role == ROLE_SOURCE && num_connections >= 2)
+    {
+        bt_le_scan_stop();
+        bt_le_adv_stop();
+        network_formed = true;
+    }
+    if (config->role == ROLE_TARGET && num_connections >= 1)
+    {
+        bt_le_scan_stop();
+        bt_le_adv_stop();
+        network_formed = true;
+    }
 
     int disc_err = discover_characteristic(conn);
     // Close the connection if discovery failed, and restart scanning.
@@ -414,9 +447,9 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi,
 
 static int start_scan(void)
 {
-    // Configure scan parameters: active scanning, no special options, fast interval and window.
+    // Configure scan parameters: passive scanning, no special options, fast interval and window.
     struct bt_le_scan_param scan_param = {
-        .type = BT_LE_SCAN_TYPE_ACTIVE,
+        .type = BT_LE_SCAN_TYPE_PASSIVE,
         .options = BT_LE_SCAN_OPT_NONE,
         .interval = BT_GAP_SCAN_FAST_INTERVAL,
         .window = BT_GAP_SCAN_FAST_WINDOW,
@@ -440,7 +473,8 @@ static void start_advertise(void)
     bt_addr_le_t addr = {0};
     size_t count = 1;
 
-    // Maybe change to wider delay between advertisements as their traffic may jam the network if they are too many.
+    // Pretty slow advertising, may be made faster for part 4 if that helps.
+    // int err = bt_le_adv_start(BT_LE_ADV_CONN_SLOW, ad, ARRAY_SIZE(ad), NULL, 0);
     int err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), NULL, 0);
     if (err)
     {
@@ -465,14 +499,16 @@ static void bt_ready(int err)
     }
     printk("Bluetooth initialized\n");
 
+    // Setup KWork item for scan retries and downstream scan triggering after discovery.
+    k_work_init_delayable(&scan_work, scan_work_handler);
+
     // ... else proceed to start scanning (if we're a source node) and advertising
     if (config->role == ROLE_SOURCE)
-        k_work_init_delayable(&scan_work, scan_work_handler);
+    {
+        k_work_schedule(&scan_work, K_MSEC(500));
+    }
 
     start_advertise();
-
-    if (config->role == ROLE_SOURCE)
-        k_work_schedule(&scan_work, K_NO_WAIT);
 }
 
 static void role_SOURCE(void)
@@ -513,7 +549,11 @@ static void role_SOURCE(void)
         // Only send when at least one peer is ready.
         bool any_ready = false;
         for (short i = 0; i < num_connections; i++)
-            if (conn_ready[i]) { any_ready = true; break; }
+            if (conn_ready[i])
+            {
+                any_ready = true;
+                break;
+            }
 
         if (any_ready)
             send_message_SOURCE();
@@ -534,9 +574,6 @@ static void role_TARGET(void)
     gpio_init_callback(&button_cb_data, button_pressed, BIT(button.pin));
     gpio_add_callback(button.port, &button_cb_data);
 
-    // TARGET needs scan_work for button-triggered scan and post-discovery downstream scan.
-    k_work_init_delayable(&scan_work, scan_work_handler);
-
     // Initialize Bluetooth, and proceed to bt_ready.
     int err = bt_enable(bt_ready);
     if (err)
@@ -552,9 +589,9 @@ static void role_TARGET(void)
         k_sleep(K_MSEC(200));
         measurement_counter++;
 
-        int16_t  t  = rand_temperature();
-        uint16_t h  = rand_humidity();
-        int64_t  ts = k_uptime_get();
+        int16_t t = rand_temperature();
+        uint16_t h = rand_humidity();
+        int64_t ts = k_uptime_get();
 
         printk("%u;%u;%d.%d;%u.%u;%lld;0\n",
                config->node_id, measurement_counter,
