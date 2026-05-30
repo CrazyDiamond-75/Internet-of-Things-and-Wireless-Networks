@@ -20,7 +20,7 @@ SOURCE_PORTS = [
 ]
 SINK_PORT = ('localhost', 60004)  # device_4, node_id=3
 
-TARGET_SENT = 20
+TARGET_SENT = 200
 
 LINE_RE = re.compile(r'^(\d+);(\d+);(-?\d+\.\d+);(\d+\.\d+);(\d+);(\d+)$')
 

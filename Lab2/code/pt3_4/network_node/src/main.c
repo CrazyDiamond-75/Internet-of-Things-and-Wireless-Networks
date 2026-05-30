@@ -300,18 +300,18 @@ static void connected(struct bt_conn *conn, uint8_t err)
     // Stop scanning and advertising once we have all the connections we need.
     // SOURCE only connects upstream (1 connection).
     // TARGET connects to one upstream and one downstream (2 connections).
-    if (config->role == ROLE_SOURCE && num_connections >= 2)
-    {
-        bt_le_scan_stop();
-        bt_le_adv_stop();
-        network_formed = true;
-    }
-    if (config->role == ROLE_TARGET && num_connections >= 1)
-    {
-        bt_le_scan_stop();
-        bt_le_adv_stop();
-        network_formed = true;
-    }
+    // if (config->role == ROLE_SOURCE && num_connections >= 2)
+    // {
+    //     bt_le_scan_stop();
+    //     bt_le_adv_stop();
+    //     network_formed = true;
+    // }
+    // if (config->role == ROLE_TARGET && num_connections >= 1)
+    // {
+    //     bt_le_scan_stop();
+    //     bt_le_adv_stop();
+    //     network_formed = true;
+    // }
 
     int disc_err = discover_characteristic(conn);
     // Close the connection if discovery failed, and restart scanning.
@@ -475,7 +475,7 @@ static void start_advertise(void)
 
     // Pretty slow advertising, may be made faster for part 4 if that helps.
     // int err = bt_le_adv_start(BT_LE_ADV_CONN_SLOW, ad, ARRAY_SIZE(ad), NULL, 0);
-    int err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), NULL, 0);
+    int err = bt_le_adv_start(BT_LE_ADV_CONN_SLOW, ad, ARRAY_SIZE(ad), NULL, 0);
     if (err)
     {
         printk("Advertising start failed (%d)\n", err);
