@@ -4,7 +4,7 @@
 \maketitle
 
 \section{Project Idea}
-The idea we had for our IoT project is a BLE-based user device proximity/position detection.
+The idea we had for our IoT project is a BLE-based user device position detection.
 Devices in a smart home may want to know if a user Bluetooth device is present nearby or in the same room without using a motion sensor.
 This could be useful for triggering smart home devices or waking/suspending them from/to an energy saving mode, e.g., automatic lights and fans.
 Furthermore, when using three or more devices, we can pinpoint the position of the user and use that data to wake specific services.
@@ -21,7 +21,7 @@ Our approach shows the other way, where these devices find out the position of t
 \subsection{Concept}
 We can implement the project idea using the following method.
 \begin{enumerate}
-    \item We place at least three devices in an arbitrary formation (optimally in a circle) around a user device with Bluetooth on\footnote{This is not restricted to smartphones, but also smartwatches, which often permanently have Bluetooth on.}.
+    \item We place three devices in an arbitrary formation (optimally in a circle) around a user device with Bluetooth on\footnote{This is not restricted to smartphones, but also smartwatches, which often permanently have Bluetooth on.}.
 
     \item These devices continuously scan for foreign advertisements.
 
@@ -36,14 +36,11 @@ We can implement the project idea using the following method.
 Based on the preceding concept, we design three main tasks for us to solve.
 
 \paragraph{Task 1: 5 Points}
-Setup one device which relays the RSSIs of foreign advertisements to a devices which converts this measure to a distance.
-Average values over time to reduce noise.
+Setup one device which relays RSSIs of foreign advertisements to a general purpose computer to convert to distance.
 
 \paragraph{Task 2: 10 Points}
-Setup three devices which relay the RSSIs to a smarter device which uses these signal strengths to triangulate the position of the device.
-Again, reduce noise by averaging the samples and then output the position estimate.
+Setup three devices which relay the RSSIs of one device to a general purpose computer and triangulate the position.
 
 \paragraph{Task 3: 15 Points}
-Calculate a dynamic visualization on the smarter device to track the movement of the user device.
-Also support multiple devices at the same time.
+Calculate a dynamic visualization on the general purpose device to track the movement of the user device.
 \end{document}
