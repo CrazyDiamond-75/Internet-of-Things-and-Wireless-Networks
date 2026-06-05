@@ -1,20 +1,18 @@
-#include <zephyr.h>
+#include <zephyr/kernel.h>
 #include <zephyr/types.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/sys/util.h>
+#include <zephyr/sys/byteorder.h>
+#include <zephyr/drivers/gpio.h>
+
+#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/hci.h>
+#include <zephyr/bluetooth/uuid.h>
+#include <zephyr/bluetooth/gatt.h>
+#include <zephyr/bluetooth/conn.h>
 
 #include <stddef.h>
 #include <stdint.h>
-#include <sys/printk.h>
-#include <sys/util.h>
-#include <sys/byteorder.h>
-
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/hci.h>
-#include <bluetooth/uuid.h>
-#include <bluetooth/gatt.h>
-#include <bluetooth/conn.h>
-
-#include <random/rand32.h>
-#include <drivers/gpio.h>
 #include <stdlib.h>
 
 /* Very slow advertising. */
