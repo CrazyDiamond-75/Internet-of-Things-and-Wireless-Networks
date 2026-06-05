@@ -4,16 +4,36 @@ from bless import (
     GATTCharacteristicProperties,
     GATTAttributePermissions,
 )
+import struct
+
+FORMAT = "<B q b B 6s"
+SIZE = struct.calcsize(FORMAT)
+
+
+def parse_message(data: bytearray):
+    if len(data) < SIZE:
+        raise ValueError(f"Expected {SIZE} bytes, got {len(data)}")
+
+    node_id, timestamp, rssi, addr_type, addr_raw = struct.unpack(FORMAT, data[:SIZE])
+
+    # Convert MAC to readable format
+    mac = ":".join(f"{b:02X}" for b in addr_raw[::-1])  # reverse for BLE display
+
+    return {
+        "node_id": node_id,
+        "timestamp": timestamp,
+        "rssi": rssi,
+        "addr_type": addr_type,
+        "mac": mac,
+    }
+
 
 SERVICE_UUID = "0000ACDC-0000-1000-8000-00805F9B34FB"
 CHARACT_UUID = "0000DEAF-0000-1000-8000-00805F9B34FB"
 
 
 def on_write(uuid, value):
-    print(type(value))
-
-    print(f"Received write: {value}")
-    print(f"As string: {value.decode(errors="ignore")}")
+    print(parse_message(value))
 
 
 async def main():

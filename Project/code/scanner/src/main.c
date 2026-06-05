@@ -27,18 +27,15 @@ static int64_t time_since_boot;
 
 // KWork item associated with scan_work_handler.
 static struct k_work_delayable scan_work;
-static void scan_work_handler(struct k_work *work)
-{
+static void scan_work_handler(struct k_work *work) {
   int err = start_scan();
-  if (err)
-  {
+  if (err) {
     // Controller still busy, retry.
     k_work_schedule(&scan_work, K_MSEC(1000));
   }
 }
 
-static void send_message(message_t *msg)
-{
+static void send_message(message_t *msg) {
   if (!default_connection)
     return;
   if (!char_handle)
@@ -56,10 +53,8 @@ static void send_message(message_t *msg)
     printk("Write to central failed (%d)\n", err);
 }
 
-static void configure(void)
-{
-  if (config->magic != MAGIC_NUMBER)
-  {
+static void configure(void) {
+  if (config->magic != MAGIC_NUMBER) {
     printk("Invalid magic number: 0x%08X\n", config->magic);
     return;
   }
@@ -70,10 +65,8 @@ static void configure(void)
 static struct bt_gatt_discover_params disc_params;
 static uint8_t discover_cb(struct bt_conn *conn,
                            const struct bt_gatt_attr *attr,
-                           struct bt_gatt_discover_params *params)
-{
-  if (!attr)
-  {
+                           struct bt_gatt_discover_params *params) {
+  if (!attr) {
     printk("Discovery complete\n");
 
     // Mark connection ready for writes after full discovery.
@@ -81,8 +74,7 @@ static uint8_t discover_cb(struct bt_conn *conn,
     return BT_GATT_ITER_STOP;
   }
 
-  if (default_connection == conn)
-  {
+  if (default_connection == conn) {
     // attr-user_data contains a pointer to the characteristic metadata,
     // including its handle.
     const struct bt_gatt_chrc *gatt_chrc = attr->user_data;
@@ -94,8 +86,7 @@ static uint8_t discover_cb(struct bt_conn *conn,
   return BT_GATT_ITER_CONTINUE;
 }
 
-static int discover_characteristic(struct bt_conn *conn)
-{
+static int discover_characteristic(struct bt_conn *conn) {
   disc_params.uuid = &char_uuid.uuid;
   disc_params.func = discover_cb;
   disc_params.start_handle = BT_ATT_FIRST_ATTRIBUTE_HANDLE;
@@ -105,12 +96,10 @@ static int discover_characteristic(struct bt_conn *conn)
   return bt_gatt_discover(conn, &disc_params);
 }
 
-static void connected(struct bt_conn *conn, uint8_t err)
-{
+static void connected(struct bt_conn *conn, uint8_t err) {
 
   // If bt_conn_le_create failed, report the error.
-  if (err)
-  {
+  if (err) {
     printk("Connection failed, error (%d)\n", err);
     return;
   }
@@ -127,16 +116,14 @@ static void connected(struct bt_conn *conn, uint8_t err)
 
   int disc_err = discover_characteristic(conn);
   // Close the connection if discovery failed.
-  if (disc_err)
-  {
+  if (disc_err) {
     printk("Discover failed, error (%d)\n", disc_err);
     bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
     return;
   }
 }
 
-static void disconnected(struct bt_conn *conn, uint8_t reason)
-{
+static void disconnected(struct bt_conn *conn, uint8_t reason) {
   // Report the reason why the connection was closed.
   printk("Disconnected, reason (%d)\n", reason);
 
@@ -153,21 +140,17 @@ BT_CONN_CB_DEFINE(conn_callbacks) = {
     .disconnected = disconnected,
 };
 
-static bool ad_parse_cb(struct bt_data *data, void *user_data)
-{
+static bool ad_parse_cb(struct bt_data *data, void *user_data) {
   bool *found = user_data;
 
   // If the advertising data is some UUID, check if it contains the desired
   // service UUID.
-  if (data->type == BT_DATA_UUID16_ALL || data->type == BT_DATA_UUID16_SOME)
-  {
+  if (data->type == BT_DATA_UUID16_ALL || data->type == BT_DATA_UUID16_SOME) {
     // service_uuid.val is stored little-endian.
-    for (int i = 0; i + 1 < data->data_len; i += 2)
-    {
+    for (int i = 0; i + 1 < data->data_len; i += 2) {
       // If the UUIDs match, set ctx->found to true and stop iterating.
       uint16_t uuid = sys_get_le16(&data->data[i]);
-      if (uuid == service_uuid.val)
-      {
+      if (uuid == service_uuid.val) {
         *found = true;
         return false; // Stop iterating
       }
@@ -176,8 +159,7 @@ static bool ad_parse_cb(struct bt_data *data, void *user_data)
   return true; // Continue iterating
 }
 
-static bool ad_parse(struct net_buf_simple *data)
-{
+static bool ad_parse(struct net_buf_simple *data) {
   // Parse the advertising data and check if it contains the desired service
   // UUID.
   bool found = false;
@@ -186,8 +168,7 @@ static bool ad_parse(struct net_buf_simple *data)
 }
 
 static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
-                         struct net_buf_simple *ad_foreign)
-{
+                         struct net_buf_simple *ad_foreign) {
   // Ignore scan response reports.
   // if (type == BT_GAP_ADV_TYPE_SCAN_RSP)
   // {
@@ -200,13 +181,11 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
 
   // Check if the advertised device has the right service UUID in its
   // advertising data and that we're not connected.
-  if (!conn_ready && ad_parse(ad_foreign))
-  {
+  if (!conn_ready && ad_parse(ad_foreign)) {
     printk("Central found: %s, RSSI %d\n", addr_str, rssi);
     // Stop scanning before connecting to avoid EAGAIN errors.
     int stop_err = bt_le_scan_stop();
-    if (stop_err && stop_err != -EALREADY)
-    {
+    if (stop_err && stop_err != -EALREADY) {
       printk("Scan stop failed (%d)\n", stop_err);
       return;
     }
@@ -220,20 +199,20 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
         BT_LE_CONN_PARAM_DEFAULT, // Default connection interval, latency and
                                   // timeout.
         &conn);
-    if (err)
-    {
+    if (err) {
       printk("Connection failed, error (%d)\n", err);
       k_work_schedule(&scan_work, K_MSEC(500));
       return;
     }
 
+    // Restart scanning
+    k_work_schedule(&scan_work, K_MSEC(500));
+
     // Lastly, unreference the connection since we won't be using it in this
     // callback.
     bt_conn_unref(conn);
     return;
-  }
-  else if (conn_ready)
-  {
+  } else if (conn_ready) {
     // If the service doesn't have the right UUID, but we're already connected
     // to the central, redirect the relevant data to the central.
 
@@ -249,8 +228,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
   }
 }
 
-static int start_scan(void)
-{
+static int start_scan(void) {
   // Configure scan parameters: passive scanning, no special options, fast
   // interval and window.
   struct bt_le_scan_param scan_param = {
@@ -263,8 +241,7 @@ static int start_scan(void)
   // Start scanning and check for errors, when a device is found proceed to
   // device_found callback.
   int err = bt_le_scan_start(&scan_param, device_found);
-  if (err)
-  {
+  if (err) {
     printk("Starting scanning failed, error (%d)\n", err);
     return err;
   }
@@ -273,11 +250,9 @@ static int start_scan(void)
   return 0;
 }
 
-static void bt_ready(int err)
-{
+static void bt_ready(int err) {
   // If Bluetooth didn't initialize, report the error and stop...
-  if (err)
-  {
+  if (err) {
     printk("Bluetooth init failed (err %d)\n", err);
     return;
   }
@@ -290,8 +265,7 @@ static void bt_ready(int err)
   k_work_schedule(&scan_work, K_MSEC(500));
 }
 
-int main(void)
-{
+int main(void) {
   // Read node ID from static address.
   configure();
 
@@ -299,16 +273,14 @@ int main(void)
 
   // Initialize Bluetooth, and proceed to bt_ready.
   int err = bt_enable(bt_ready);
-  if (err)
-  {
+  if (err) {
     printk("bt_enable failed (err %d)\n", err);
   }
 
   printk("bt_enable called\n");
 
   // Sleep forever, all work is done in callbacks.
-  while (1)
-  {
+  while (1) {
     k_sleep(K_FOREVER);
   }
 
