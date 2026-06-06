@@ -8,7 +8,7 @@ emulation CreateIEEE802_15_4Medium "wireless"
 mach create "sender"
 machine LoadPlatformDescription @platforms/boards/nrf52840dk_nrf52840.repl
 
-sysbus LoadELF @C:\Users\parham\OneDrive\Documents\PlatformIO\Projects\Sender\.pio\build\nrf52840dk_nrf52840\firmware.elf
+sysbus LoadELF $ORIGIN/Sender/.pio/build/nrf52840dk_nrf52840/firmware.elf
 
 connector Connect sysbus.radio wireless
 
@@ -18,7 +18,7 @@ showAnalyzer sysbus.uart0
 mach create "receiver"
 machine LoadPlatformDescription @platforms/boards/nrf52840dk_nrf52840.repl
 
-sysbus LoadELF @C:\Users\parham\OneDrive\Documents\PlatformIO\Projects\Receiver\.pio\build\nrf52840dk_nrf52840\firmware.elf
+sysbus LoadELF $ORIGIN/Receiver/.pio/build/nrf52840dk_nrf52840/firmware.elf
 
 connector Connect sysbus.radio wireless
 
