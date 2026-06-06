@@ -1,0 +1,28 @@
+# lab3.resc
+# Renode 1.16.1 - two nRF52840 boards connected via 802.15.4
+
+# ── Create the shared wireless medium ──────────────────────────────────────────
+emulation CreateIEEE802_15_4Medium "wireless"
+
+# ── Board 1: Sender ────────────────────────────────────────────────────────────
+mach create "sender"
+machine LoadPlatformDescription @platforms/boards/nrf52840dk_nrf52840.repl
+
+sysbus LoadELF @C:\Users\parham\OneDrive\Documents\PlatformIO\Projects\Sender\.pio\build\nrf52840dk_nrf52840\firmware.elf
+
+connector Connect sysbus.radio wireless
+
+showAnalyzer sysbus.uart0
+
+# ── Board 2: Receiver ──────────────────────────────────────────────────────────
+mach create "receiver"
+machine LoadPlatformDescription @platforms/boards/nrf52840dk_nrf52840.repl
+
+sysbus LoadELF @C:\Users\parham\OneDrive\Documents\PlatformIO\Projects\Receiver\.pio\build\nrf52840dk_nrf52840\firmware.elf
+
+connector Connect sysbus.radio wireless
+
+showAnalyzer sysbus.uart0
+
+# ── Run ────────────────────────────────────────────────────────────────────────
+start
