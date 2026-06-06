@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <net/net_mgmt.h>
 
 LOG_MODULE_REGISTER(udp_receiver, LOG_LEVEL_DBG);
 
@@ -21,6 +22,15 @@ typedef struct {
     int   light;
 } sensor_data_t;
 
+static void setup_network(void)
+{
+    k_sleep(K_MSEC(500));
+    struct net_if *iface = net_if_get_default();
+    struct in6_addr addr;
+    net_addr_pton(AF_INET6, "2001:db8::2", &addr); /* ::2 for receiver */
+    net_if_ipv6_addr_add(iface, &addr, NET_ADDR_MANUAL, 0);
+    LOG_INF("Network setup complete");
+}
 
 static float parse_float(const char *s)
 {
@@ -76,9 +86,11 @@ static int parse_sensor_data(const char *payload, sensor_data_t *out)
 int main(void)
 {
     LOG_INF("UDP Receiver starting (802.15.4 / 6LoWPAN)");
+    setup_network();
 
     LOG_INF("Waiting for network interface...");
-    k_sleep(K_SECONDS(2));
+    /* Wait for interface to be ready */
+    
 
     int sock = zsock_socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0) {

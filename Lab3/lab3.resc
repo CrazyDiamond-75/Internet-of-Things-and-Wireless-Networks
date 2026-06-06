@@ -25,4 +25,6 @@ connector Connect sysbus.radio wireless
 showAnalyzer sysbus.uart0
 
 # ── Run ────────────────────────────────────────────────────────────────────────
+emulation LogIEEE802_15_4Traffic
+
 start
