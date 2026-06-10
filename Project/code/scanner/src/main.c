@@ -1,11 +1,5 @@
 #include "main.h"
 
-// Declare pointer to configuration at reserved address.
-volatile boot_config_t *config = (volatile boot_config_t *)CONFIG_ADDR;
-
-// Node ID, set during configuration.
-static uint8_t node_id;
-
 // Stores the current connection.
 struct bt_conn *default_connection;
 
@@ -51,14 +45,6 @@ static void send_message(message_t *msg) {
 
   if (err)
     printk("Write to central failed (%d)\n", err);
-}
-
-static void configure(void) {
-  if (config->magic != MAGIC_NUMBER) {
-    printk("Invalid magic number: 0x%08X\n", config->magic);
-    return;
-  }
-  node_id = config->node_id; // Copy the value to prevent corruption.
 }
 
 // Parameters for the dicovery of the characteristic handle.
@@ -219,7 +205,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
     printk("Foreign device found: %s, RSSI %d\n", addr_str, rssi);
 
     message_t msg = {
-        .nodeID = node_id,
+        .nodeID = NODE_ID,
         .timestamp = k_uptime_get() - time_since_boot,
         .rssi = rssi,
         .sender = *addr,
@@ -266,9 +252,6 @@ static void bt_ready(int err) {
 }
 
 int main(void) {
-  // Read node ID from static address.
-  configure();
-
   printk("Starting scanner node.\n");
 
   // Initialize Bluetooth, and proceed to bt_ready.

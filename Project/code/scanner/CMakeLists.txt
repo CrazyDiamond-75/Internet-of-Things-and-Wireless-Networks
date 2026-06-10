@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20.0)
 
-set(DTC_OVERLAY_FILE "esp32dev.overlay")
+#set(DTC_OVERLAY_FILE "esp32dev.overlay")
 
 include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake NO_POLICY_SCOPE)
 project(scanner)

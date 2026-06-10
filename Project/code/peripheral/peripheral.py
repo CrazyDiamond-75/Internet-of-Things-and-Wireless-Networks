@@ -5,6 +5,7 @@ from bless import (
     GATTAttributePermissions,
 )
 import struct
+from math import sqrt
 
 FORMAT = "<B q b B 6s"
 SIZE = struct.calcsize(FORMAT)
@@ -39,6 +40,8 @@ positions = []
 def on_write(uuid, value):
     parsed = parse_message(value)
 
+    print(parsed)
+
     node = parsed["node_id"]
     time = parsed["timestamp"]
     rssi = parsed["rssi"]
@@ -59,25 +62,34 @@ lookup_table = {}
 
 
 def init_lookup(res, xmin, xmax, ymin, ymax, positions):
-    p1 = positions[0]
-    p2 = positions[1]
-    p3 = positions[2]
+    p1, p2, p3 = positions
+
+    x_steps = int((xmax - xmin) / res)
+    y_steps = int((ymax - xmin) / res)
 
     # Use resolution as pixel width between x and y values.
-    # TODO: This could be pretty unintuitive, as we would want the res parameter to be defining the resolution of ratio values.
-    for x in range(xmin, ymin, res):
-        for y in range(ymin, ymax, res):
+    for i in range(x_steps + 1):
+        x = xmin + i * res
+        for j in range(y_steps + 1):
+            y = ymin + j * res
+
             # Calculate positions
             d1 = sqrt((p1[0] - x) ** 2 + (p1[1] - y) ** 2)
             d2 = sqrt((p2[0] - x) ** 2 + (p2[1] - y) ** 2)
             d3 = sqrt((p3[0] - x) ** 2 + (p3[1] - y) ** 2)
 
-            # Calculate ratios
-            r21 = d2 / d1
-            r31 = d3 / d1
+            if d1 == 0:
+                r21 = float("inf")
+                r31 = float("inf")
+
+            else:
+                # Calculate ratios
+                r21 = d2 / d1
+                r31 = d3 / d1
 
             # TODO: use k-d tree or some regression model (e.g., neuronal net to improve performance)
             lookup_table[(r21, r31)] = (x, y)
+            # print(f"{x, y} -> {(r21, r31)}")
 
 
 def lookup(r21, r31):
@@ -88,8 +100,9 @@ def lookup(r21, r31):
         err = (r21_t - r21) ** 2 + (r31_t - r31) ** 2
         if min_err > err:
             best = (r21_t, r31_t)
+            min_err = err
 
-    return best
+    return lookup_table[best]
 
 
 def triangulate(n1, n2, n3, N, rssi0=None, solve=False):
@@ -131,10 +144,10 @@ def triangulate(n1, n2, n3, N, rssi0=None, solve=False):
     # Method 3
     if rssi0 is None and not solve:
         # Calculate ratios
-        r21 = 10.0 ** ((n1 - n2) / 10.0 * N)
-        r31 = 10.0 ** ((n1 - n3) / 10.0 * N)
+        r21 = 10.0 ** ((n1 - n2) / (10.0 * N))
+        r31 = 10.0 ** ((n1 - n3) / (10.0 * N))
 
-        return loopup(r21, r31)
+        return lookup(r21, r31)
 
 
 def avg(triples):
@@ -157,9 +170,7 @@ def dequeue():
         if all(buffers[addr]):
             result: tuple(float, float, float)
 
-            buff_1 = buffers[addr][0]
-            buff_2 = buffers[addr][1]
-            buff_3 = buffers[addr][2]
+            buff_1, buff_2, buff_3 = buffers[addr]
 
             # Triangulate based on one sample if the range between measurements is good enough.
             """
@@ -189,7 +200,9 @@ def dequeue():
                 n2 = buff_2.pop(0)[1]
                 n3 = buff_3.pop(0)[1]
 
-                results.append(triangulate(n1, n2, n3))
+                # Use N=3, as N typically ranges between 2 and 4.
+                # TODO: Find good estimations for N.
+                results.append(triangulate(n1, n2, n3, 3))
 
             # Todo: Maybe also calculate variance to display uncertainty.
             result = avg(results)
@@ -207,7 +220,7 @@ async def main():
         }
     }
 
-    server = BlessServer(name="Triangulation Peripheral")
+    server = BlessServer(name="TriServer")
     server.write_request_func = on_write
 
     await server.add_gatt(gatt)
@@ -222,5 +235,19 @@ async def main():
 
         print(positions)
 
+
+# Example configuration with 5 points per meter, box around (0,0) with area 10m^2, and equidistant triangle (0, -5), (sqrt(25 - 2.5^2), 2.5), (-sqrt(25 - 2.5^2, 2.5).
+init_lookup(
+    0.2,
+    -5,
+    5,
+    -5,
+    5,
+    [(0, -5), (sqrt(25.0 - 2.5**2), 2.5), (-sqrt(25.0 - 2.5**2), 2.5)],
+)
+
+# Example call to test config.
+# r21, r31 = (1.4317, 2.35)
+# print(f"{(r21, r31)} -> {lookup(r21, r31)}")
 
 asyncio.run(main())
