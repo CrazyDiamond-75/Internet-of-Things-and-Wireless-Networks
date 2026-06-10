@@ -33,7 +33,7 @@ SERVICE_UUID = "0000ACDC-0000-1000-8000-00805F9B34FB"
 CHARACT_UUID = "0000DEAF-0000-1000-8000-00805F9B34FB"
 
 
-buffers = []
+buffers = {}
 positions = []
 
 
@@ -166,6 +166,8 @@ def avg(triples):
 
 
 def dequeue():
+    if buffers == []:
+        return
     for addr in buffers.keys():
         if all(buffers[addr]):
             result: tuple(float, float, float)
