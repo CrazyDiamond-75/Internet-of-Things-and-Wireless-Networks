@@ -34,13 +34,13 @@ CHARACT_UUID = "0000DEAF-0000-1000-8000-00805F9B34FB"
 
 
 buffers = {}
-positions = []
+positions = {}
 
 
 def on_write(uuid, value):
     parsed = parse_message(value)
 
-    print(parsed)
+    #print(parsed)
 
     node = parsed["node_id"]
     time = parsed["timestamp"]
@@ -55,14 +55,14 @@ def on_write(uuid, value):
             [],
         ]
 
-    buffers[addr][node].append((time, rssi))
+    buffers[addr][node - 1].append((time, rssi))
 
 
 lookup_table = {}
 
 
-def init_lookup(res, xmin, xmax, ymin, ymax, positions):
-    p1, p2, p3 = positions
+def init_lookup(res, xmin, xmax, ymin, ymax, triangle):
+    p1, p2, p3 = triangle
 
     x_steps = int((xmax - xmin) / res)
     y_steps = int((ymax - xmin) / res)
@@ -150,19 +150,12 @@ def triangulate(n1, n2, n3, N, rssi0=None, solve=False):
         return lookup(r21, r31)
 
 
-def avg(triples):
-    avg0 = 0.0
-    avg1 = 0.0
-    avg2 = 0.0
-    n = len(triples)
+def avg(tuples):
+    n = len(tuples) 
+    if n != 2:
+        return None
 
-    unzipped = zip(*triples)
-
-    avg0 = sum(unzipped[0]) / n
-    avg1 = sum(unzipped[1]) / n
-    avg2 = sum(unzipped[2]) / n
-
-    return (avg0, avg1, avg2)
+    return tuple(sum(col) / n for col in zip(*tuples))
 
 
 def dequeue():
@@ -235,10 +228,11 @@ async def main():
         await asyncio.sleep(2)
         dequeue()
 
-        print(positions)
+        print([(addr, positions[addr]) for addr in positions.keys() if positions[addr]])
 
 
 # Example configuration with 5 points per meter, box around (0,0) with area 10m^2, and equidistant triangle (0, -5), (sqrt(25 - 2.5^2), 2.5), (-sqrt(25 - 2.5^2, 2.5).
+"""
 init_lookup(
     0.2,
     -5,
@@ -246,6 +240,17 @@ init_lookup(
     -5,
     5,
     [(0, -5), (sqrt(25.0 - 2.5**2), 2.5), (-sqrt(25.0 - 2.5**2), 2.5)],
+)
+"""
+
+# Example configuration mirroring my kitchen.
+init_lookup(
+    0.2,
+    -2,
+    2,
+    -1,
+    3,
+    [(0, 0), (-1.65, 2.5), (1.85, 2.5)],
 )
 
 # Example call to test config.
