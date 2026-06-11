@@ -40,7 +40,7 @@ positions = {}
 def on_write(uuid, value):
     parsed = parse_message(value)
 
-    #print(parsed)
+    # print(parsed)
 
     node = parsed["node_id"]
     time = parsed["timestamp"]
@@ -151,10 +151,10 @@ def triangulate(n1, n2, n3, N, rssi0=None, solve=False):
 
 
 def avg(tuples):
-    n = len(tuples) 
-    if n != 2:
+    if not tuples:
         return None
 
+    n = len(tuples)
     return tuple(sum(col) / n for col in zip(*tuples))
 
 
@@ -163,14 +163,14 @@ def dequeue():
         return
     for addr in buffers.keys():
         if all(buffers[addr]):
-            result: tuple(float, float, float)
+            result: tuple(float, float)
 
             buff_1, buff_2, buff_3 = buffers[addr]
 
             # Triangulate based on one sample if the range between measurements is good enough.
             """
-            tmin = min(buff_1[0], buff_1[0], buff_2[0])
-            tmax = max(buff_1[0], buff_1[0], buff_2[0])
+            tmin = min(buff_1[0], buff_2[0], buff_3[0])
+            tmax = max(buff_1[0], buff_2[0], buff_3[0])
             
             # I will search for a sensible range...
             if tmax - tmin < 1000:
