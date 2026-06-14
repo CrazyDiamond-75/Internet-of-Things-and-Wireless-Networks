@@ -44,7 +44,6 @@ static void update_sensors(void)
     sim_light       = 200 + (tick % 5) * 100;
 }
 
-/* Split a float into integer and 2-digit fractional parts (avoids %f) */
 static void split_float(float val, int *whole, int *frac)
 {
     if (val < 0) val = -val;
