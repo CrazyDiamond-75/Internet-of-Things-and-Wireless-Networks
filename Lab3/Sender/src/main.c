@@ -9,7 +9,7 @@
 
 LOG_MODULE_REGISTER(udp_sender, LOG_LEVEL_DBG);
 
-#define RECEIVER_ADDR   "2001:db8::2"
+#define RECEIVER_ADDR "ff02::1"
 #define UDP_PORT        4242
 #define SEND_INTERVAL_MS 2000
 
@@ -93,7 +93,7 @@ int main(void)
         if (sent < 0) {
             LOG_ERR("sendto failed: %d (errno %d)", (int)sent, errno);
         } else {
-            LOG_INF("TX [%d bytes] %s", (int)sent, payload);
+            LOG_INF("TX [%d bytes] %s", (int)sent, log_strdup(payload));
         }
 
         k_sleep(K_MSEC(SEND_INTERVAL_MS));
