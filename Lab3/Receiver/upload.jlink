@@ -1,0 +1,5 @@
+r
+loadfile "C:\Users\parham\OneDrive\Documents\PlatformIO\Projects\Lab3\Receiver\.pio\build\nrf52840dk_nrf52840\firmware.hex"
+r
+g
+q
