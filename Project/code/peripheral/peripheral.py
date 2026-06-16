@@ -6,6 +6,10 @@ from bless import (
 )
 import struct
 from math import sqrt
+from datetime import datetime
+
+start_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+
 
 FORMAT = "<B q b B 6s"
 SIZE = struct.calcsize(FORMAT)
@@ -40,7 +44,9 @@ positions = {}
 def on_write(uuid, value):
     parsed = parse_message(value)
 
-    # print(parsed)
+    # Log received message to disk.
+    with open(f"received_messages_{start_time}.out", "w") as f:
+        print(parsed, file=f)
 
     node = parsed["node_id"]
     time = parsed["timestamp"]
@@ -159,7 +165,7 @@ def avg(tuples):
 
 
 def dequeue():
-    if buffers == []:
+    if not buffers:
         return
     for addr in buffers.keys():
         if all(buffers[addr]):
@@ -228,7 +234,16 @@ async def main():
         await asyncio.sleep(2)
         dequeue()
 
-        print([(addr, positions[addr]) for addr in positions.keys() if positions[addr]])
+        # Log currently triangulated positions to disk.
+        with open(f"triangul_positons_{start_time}.out", "w") as f:
+            print(
+                [
+                    (addr, positions[addr])
+                    for addr in positions.keys()
+                    if positions[addr]
+                ],
+                file=f,
+            )
 
 
 # Example configuration with 5 points per meter, box around (0,0) with area 10m^2, and equidistant triangle (0, -5), (sqrt(25 - 2.5^2), 2.5), (-sqrt(25 - 2.5^2, 2.5).
