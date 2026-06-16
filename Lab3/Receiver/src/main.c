@@ -134,14 +134,18 @@ int main(void)
                         src_addr_str, sizeof(src_addr_str));
 
         LOG_INF("RX [%d bytes] from [%s]:%d  raw=\"%s\"",
-                (int)received, src_addr_str,
-                ntohs(src.sin6_port), rx_buf);
+        (int)received, log_strdup(src_addr_str),
+        ntohs(src.sin6_port), log_strdup(rx_buf));
 
         sensor_data_t data;
         if (parse_sensor_data(rx_buf, &data) == 0) {
             LOG_INF("  Packet #%d", data.seq);
-            LOG_INF("  Temperature : %.2f °C",  (double)data.temperature);
-            LOG_INF("  Humidity    : %.2f %%",  (double)data.humidity);
+            int temp_whole = (int)data.temperature;
+            int temp_frac  = (int)((data.temperature - temp_whole) * 100);
+            LOG_INF("  Temperature : %d.%02d °C", temp_whole, temp_frac);
+            int hum_whole = (int)data.humidity;
+            int hum_frac  = (int)((data.humidity - hum_whole) * 100);
+            LOG_INF("  Humidity    : %d.%02d %%", hum_whole, hum_frac);
             LOG_INF("  Light       : %d lux",   data.light);
         } else {
             LOG_WRN("  Could not parse sensor data — unknown format");
