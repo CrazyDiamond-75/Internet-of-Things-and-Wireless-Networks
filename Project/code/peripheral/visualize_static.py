@@ -53,7 +53,7 @@ ax.set_xlabel("x")
 ax.set_ylabel("y")
 
 triangle = patches.Polygon(
-    [(0, 0), (-1.65, 2.5), (1.85, 2.5)],
+    [(-1.8180180180180183, -1.0095815621366517), (1.8819819819819819, -1.0095815621366517), (-0.0639639639639642, 2.0191631242733035)],
     closed=True,
     fill=False,
     edgecolor="blue",
@@ -84,7 +84,11 @@ def update(frame_idx):
         scatter.set_offsets(coords)
 
         for identifier, (x, y) in frame:
-            txt = ax.text(x, y, identifier[-5:], fontsize=8)  # shorten MAC label
+            color = "blue"
+            if identifier == "6C:A5:49:DC:D8:8D" or identifier == "A0:28:84:03:E9:02":
+                color = "red"
+
+            txt = ax.text(x, y, identifier, fontsize=8, color=color)
             texts.append(txt)
 
     ax.set_title(f"t = {frame_idx * 2}s")

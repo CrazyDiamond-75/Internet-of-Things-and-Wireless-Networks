@@ -45,7 +45,7 @@ def on_write(uuid, value):
     parsed = parse_message(value)
 
     # Log received message to disk.
-    with open(f"received_messages_{start_time}.out", "w") as f:
+    with open(f"received_messages_{start_time}.tout", "a") as f:
         print(parsed, file=f)
 
     node = parsed["node_id"]
@@ -235,7 +235,7 @@ async def main():
         dequeue()
 
         # Log currently triangulated positions to disk.
-        with open(f"triangul_positons_{start_time}.out", "w") as f:
+        with open(f"triangul_positons_{start_time}.tout", "a") as f:
             print(
                 [
                     (addr, positions[addr])
@@ -245,8 +245,9 @@ async def main():
                 file=f,
             )
 
-
-# Example configuration with 5 points per meter, box around (0,0) with area 10m^2, and equidistant triangle (0, -5), (sqrt(25 - 2.5^2), 2.5), (-sqrt(25 - 2.5^2, 2.5).
+# Example configuration with 5 points per meter
+# box around (0,0) with area 10m^2, and equidistant triangle
+# (0, -5), (sqrt(25 - 2.5^2), 2.5), (-sqrt(25 - 2.5^2, 2.5).
 """
 init_lookup(
     0.2,
@@ -259,6 +260,7 @@ init_lookup(
 """
 
 # Example configuration mirroring my kitchen.
+"""
 init_lookup(
     0.2,
     -2,
@@ -267,9 +269,20 @@ init_lookup(
     3,
     [(0, 0), (-1.65, 2.5), (1.85, 2.5)],
 )
+"""
 
 # Example call to test config.
 # r21, r31 = (1.4317, 2.35)
 # print(f"{(r21, r31)} -> {lookup(r21, r31)}")
+
+# Example configuration mirroring the TV room.
+init_lookup(
+    0.2,
+    -3,
+    3,
+    -3,
+    3,
+    [(-1.8180180180180183, -1.0095815621366517), (1.8819819819819819, -1.0095815621366517), (-0.0639639639639642, 2.0191631242733035)]
+)
 
 asyncio.run(main())
