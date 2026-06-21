@@ -29,6 +29,15 @@ static void scan_work_handler(struct k_work *work) {
   }
 }
 
+// Converts a received signal strength indicator (RSSI) to an estimated
+// distance in meters using the log-distance path loss model:
+// distance = 10 ^ ((tx_power_at_1m - rssi) / (10 * path_loss_exponent))
+static float rssi_to_distance(int8_t rssi) {
+  float exponent =
+      (float)(TX_POWER_AT_1M - rssi) / (10.0f * PATH_LOSS_EXPONENT);
+  return powf(10.0f, exponent);
+}
+
 static void send_message(message_t *msg) {
   if (!default_connection)
     return;
@@ -204,11 +213,18 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
 
     printk("Foreign device found: %s, RSSI %d\n", addr_str, rssi);
 
+    // Estimate distance from RSSI using the log-distance path loss model.
+    float estimated_distance = rssi_to_distance(rssi);
+    printk("Estimated distance: %d.%02d m\n",
+           (int)estimated_distance,
+           (int)((estimated_distance - (int)estimated_distance) * 100));
+
     message_t msg = {
         .nodeID = NODE_ID,
         .timestamp = k_uptime_get() - time_since_boot,
         .rssi = rssi,
         .sender = *addr,
+        .distance = estimated_distance,
     };
     send_message(&msg);
   }
