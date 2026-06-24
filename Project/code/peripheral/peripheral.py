@@ -7,6 +7,9 @@ from bless import (
 import struct
 from math import sqrt
 from datetime import datetime
+import numpy as np
+from scipy.interpolate import LinearNDInterpolator
+
 
 start_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
@@ -64,10 +67,14 @@ def on_write(uuid, value):
     buffers[addr][node - 1].append((time, rssi))
 
 
-lookup_table = {}
+# Used for interpolation for getting (x,y) from ratios.
+interp_x: None
+interp_y: None
 
+points = []
+values = []
 
-def init_lookup(res, xmin, xmax, ymin, ymax, triangle):
+def init_lookup(res, xmin, xmax, ymin, ymax, triangle): 
     p1, p2, p3 = triangle
 
     x_steps = int((xmax - xmin) / res)
@@ -85,31 +92,153 @@ def init_lookup(res, xmin, xmax, ymin, ymax, triangle):
             d3 = sqrt((p3[0] - x) ** 2 + (p3[1] - y) ** 2)
 
             if d1 == 0:
+                # Todo: Maybe skip these
                 r21 = float("inf")
                 r31 = float("inf")
-
             else:
                 # Calculate ratios
                 r21 = d2 / d1
                 r31 = d3 / d1
-
-            # TODO: use k-d tree or some regression model (e.g., neuronal net to improve performance)
-            lookup_table[(r21, r31)] = (x, y)
+    
+            #lookup_table[(r21, r31)] = (x, y)
+            points.append((r21, r31))
+            values.append((x, y))
             # print(f"{x, y} -> {(r21, r31)}")
 
 
-def lookup(r21, r31):
+    # Convert to numpy arrays for scipy lib.
+    points = np.array(points)
+    values = np.array(values)
+
+    # Interpolate using piecewise linear interpolation.
+    global interp_x
+    global interp_y
+
+    interp_x = LinearNDInterpolator(points, values[:,0])
+    interp_y = LinearNDInterpolator(points, values[:,1])
+    
+    # Quick section used to plot points and values
+    """
+    import matplotlib.pyplot as plt
+    
+    points_G = []
+    values_I = []
+
+    for r21 in np.arange(0, 20, 0.1):
+        for r31 in np.arange(0, 20, 0.1):
+            res = lookup(r21, r31)
+            points_G.append((r21, r31))
+            values_I.append(res)
+    
+    points_G = np.array(points_G)
+    values_I = np.array(values_I)
+    
+    r21s = points_G[:, 0]
+    r31s = points_G[:, 1]
+
+    x = values_I[:, 0]
+    y = values_I[:, 1]
+    
+    r = (x - x.min()) / (x.max() - x.min())
+    g = (y - y.min()) / (y.max() - y.min())
+    b = np.array([0.25] * len(x))
+
+    rgb = np.column_stack([r, g, b])
+
+    plt.scatter(
+        r21s,
+        r31s,
+        c=rgb,
+        s=3
+    )
+    plt.title("(x,y) from normalized distance ratios")
+    plt.show()
+
+    exit()
+
+    """
+    """
+    r21s = np.log(points[:, 0])
+    r31s = np.log(points[:, 1])
+
+    #r = np.array([0.0] * len(r21s))
+    
+    r = (r31s - r31s.min()) / (r31s.max() - r31s.min())
+    g = (r21s - r21s.min()) / (r21s.max() - r21s.min())
+    b = np.array([0.25] * len(r21s))
+
+    rgb = np.column_stack([r, g, b])
+    
+    plt.scatter(
+        values[:,0], # x
+        values[:,1], # y
+        c=rgb,
+        s=2
+    )
+
+    plt.title("Normalized distance ratios from (x,y)")
+    """
+
+    """
+    plt.scatter(
+        values[:,0], # x
+        values[:,1], # y
+        c=np.log(points[:,0] * points[:, 1]),
+        cmap="viridis",
+        s=1
+    )
+    plt.colorbar(label="log(r21 * r31)")
+    plt.title("Normalized ratio product from (x,y)")
+    """
+
+    """
+    x = values[:, 0]
+    y = values[:, 1]
+
+    r = (x - x.min()) / (x.max() - x.min())
+    g = (y - y.min()) / (y.max() - y.min())
+    b = np.array([0.25] * len(x))
+
+    rgb = np.column_stack([r, g, b])
+
+    plt.scatter(
+        np.log(1 + points[:, 0]),
+        np.log(1 + points[:, 1]),
+        c=rgb,
+        s=3
+    )
+    plt.title("(x,y) from normalized distance ratios")
+    
+    #plt.axis("equal")
+    plt.xlim(-0.25, 3)
+    plt.ylim(-0.25, 3)
+    
+
+    plt.axis("equal")
+    
+    plt.show()
+    #plt.savefig("2.png", dpi=300)
+
+    exit()
+    """
+
+def lookup_slow(r21, r31):
     # Simple algorithm which searches all entries and returns the best matching one.
     min_err = float("inf")
-    best = None
-    for r21_t, r31_t in lookup_table.keys():
+    best = -1
+
+    for i in range(len(points)):
+        r21_t, r31_t = points[i]
         err = (r21_t - r21) ** 2 + (r31_t - r31) ** 2
         if min_err > err:
-            best = (r21_t, r31_t)
+            best = i
             min_err = err
 
-    return lookup_table[best]
+    return values[best]
 
+# Faster and interpolated method.
+def lookup(r21, r31):
+    return float(interp_x(r21, r31)), float(interp_y(r21, r31))
 
 def triangulate(n1, n2, n3, N, rssi0=None, solve=False):
     """
@@ -277,7 +406,7 @@ init_lookup(
 
 # Example configuration mirroring the TV room.
 init_lookup(
-    0.2,
+    0.02,
     -3,
     3,
     -3,
