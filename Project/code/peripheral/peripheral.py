@@ -8,11 +8,10 @@ import struct
 from math import sqrt
 from datetime import datetime
 import numpy as np
-from scipy.interpolate import LinearNDInterpolator
+from scipy.spatial import KDTree
 
-
-start_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-
+# Change this to linux format if it causes problems, windows does not allow ":"
+start_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 FORMAT = "<B q b B 6s"
 SIZE = struct.calcsize(FORMAT)
@@ -67,178 +66,55 @@ def on_write(uuid, value):
     buffers[addr][node - 1].append((time, rssi))
 
 
-# Used for interpolation for getting (x,y) from ratios.
-interp_x: None
-interp_y: None
+# KDTree built from (r21, r31) → (x, y) lookup grid.
+_tree: KDTree = None
+_tree_values: np.ndarray = None
 
-points = []
-values = []
 
-def init_lookup(res, xmin, xmax, ymin, ymax, triangle): 
+def init_lookup(res, xmin, xmax, ymin, ymax, triangle):
     p1, p2, p3 = triangle
 
     x_steps = int((xmax - xmin) / res)
-    y_steps = int((ymax - xmin) / res)
+    y_steps = int((ymax - ymin) / res)
 
-    # Use resolution as pixel width between x and y values.
+    points_list = []
+    values_list = []
+
     for i in range(x_steps + 1):
         x = xmin + i * res
         for j in range(y_steps + 1):
             y = ymin + j * res
 
-            # Calculate positions
             d1 = sqrt((p1[0] - x) ** 2 + (p1[1] - y) ** 2)
             d2 = sqrt((p2[0] - x) ** 2 + (p2[1] - y) ** 2)
             d3 = sqrt((p3[0] - x) ** 2 + (p3[1] - y) ** 2)
 
             if d1 == 0:
-                # Todo: Maybe skip these
-                r21 = float("inf")
-                r31 = float("inf")
-            else:
-                # Calculate ratios
-                r21 = d2 / d1
-                r31 = d3 / d1
-    
-            #lookup_table[(r21, r31)] = (x, y)
-            points.append((r21, r31))
-            values.append((x, y))
-            # print(f"{x, y} -> {(r21, r31)}")
+                continue  # skip the singularity at node 1's position
+
+            r21 = d2 / d1
+            r31 = d3 / d1
+
+            points_list.append((r21, r31))
+            values_list.append((x, y))
+
+    global _tree, _tree_values
+    _tree = KDTree(np.array(points_list))
+    _tree_values = np.array(values_list)
+
+    print(f"Lookup table built: {len(points_list)} points")
 
 
-    # Convert to numpy arrays for scipy lib.
-    points = np.array(points)
-    values = np.array(values)
+def lookup(r21, r31, k=4):
+    """k-nearest-neighbour lookup with inverse-distance weighting."""
+    dists, idxs = _tree.query((r21, r31), k=k)
+    if np.any(dists == 0):
+        return tuple(_tree_values[idxs[np.argmin(dists)]])
+    w = 1.0 / dists
+    w /= w.sum()
+    xy = (_tree_values[idxs] * w[:, None]).sum(axis=0)
+    return tuple(xy)
 
-    # Interpolate using piecewise linear interpolation.
-    global interp_x
-    global interp_y
-
-    interp_x = LinearNDInterpolator(points, values[:,0])
-    interp_y = LinearNDInterpolator(points, values[:,1])
-    
-    # Quick section used to plot points and values
-    """
-    import matplotlib.pyplot as plt
-    
-    points_G = []
-    values_I = []
-
-    for r21 in np.arange(0, 20, 0.1):
-        for r31 in np.arange(0, 20, 0.1):
-            res = lookup(r21, r31)
-            points_G.append((r21, r31))
-            values_I.append(res)
-    
-    points_G = np.array(points_G)
-    values_I = np.array(values_I)
-    
-    r21s = points_G[:, 0]
-    r31s = points_G[:, 1]
-
-    x = values_I[:, 0]
-    y = values_I[:, 1]
-    
-    r = (x - x.min()) / (x.max() - x.min())
-    g = (y - y.min()) / (y.max() - y.min())
-    b = np.array([0.25] * len(x))
-
-    rgb = np.column_stack([r, g, b])
-
-    plt.scatter(
-        r21s,
-        r31s,
-        c=rgb,
-        s=3
-    )
-    plt.title("(x,y) from normalized distance ratios")
-    plt.show()
-
-    exit()
-
-    """
-    """
-    r21s = np.log(points[:, 0])
-    r31s = np.log(points[:, 1])
-
-    #r = np.array([0.0] * len(r21s))
-    
-    r = (r31s - r31s.min()) / (r31s.max() - r31s.min())
-    g = (r21s - r21s.min()) / (r21s.max() - r21s.min())
-    b = np.array([0.25] * len(r21s))
-
-    rgb = np.column_stack([r, g, b])
-    
-    plt.scatter(
-        values[:,0], # x
-        values[:,1], # y
-        c=rgb,
-        s=2
-    )
-
-    plt.title("Normalized distance ratios from (x,y)")
-    """
-
-    """
-    plt.scatter(
-        values[:,0], # x
-        values[:,1], # y
-        c=np.log(points[:,0] * points[:, 1]),
-        cmap="viridis",
-        s=1
-    )
-    plt.colorbar(label="log(r21 * r31)")
-    plt.title("Normalized ratio product from (x,y)")
-    """
-
-    """
-    x = values[:, 0]
-    y = values[:, 1]
-
-    r = (x - x.min()) / (x.max() - x.min())
-    g = (y - y.min()) / (y.max() - y.min())
-    b = np.array([0.25] * len(x))
-
-    rgb = np.column_stack([r, g, b])
-
-    plt.scatter(
-        np.log(1 + points[:, 0]),
-        np.log(1 + points[:, 1]),
-        c=rgb,
-        s=3
-    )
-    plt.title("(x,y) from normalized distance ratios")
-    
-    #plt.axis("equal")
-    plt.xlim(-0.25, 3)
-    plt.ylim(-0.25, 3)
-    
-
-    plt.axis("equal")
-    
-    plt.show()
-    #plt.savefig("2.png", dpi=300)
-
-    exit()
-    """
-
-def lookup_slow(r21, r31):
-    # Simple algorithm which searches all entries and returns the best matching one.
-    min_err = float("inf")
-    best = -1
-
-    for i in range(len(points)):
-        r21_t, r31_t = points[i]
-        err = (r21_t - r21) ** 2 + (r31_t - r31) ** 2
-        if min_err > err:
-            best = i
-            min_err = err
-
-    return values[best]
-
-# Faster and interpolated method.
-def lookup(r21, r31):
-    return float(interp_x(r21, r31)), float(interp_y(r21, r31))
 
 def triangulate(n1, n2, n3, N, rssi0=None, solve=False):
     """
@@ -306,7 +182,7 @@ def dequeue():
             """
             tmin = min(buff_1[0], buff_2[0], buff_3[0])
             tmax = max(buff_1[0], buff_2[0], buff_3[0])
-            
+
             # I will search for a sensible range...
             if tmax - tmin < 1000:
                 n1 = buff_1.pop(0)[1]
@@ -331,8 +207,7 @@ def dequeue():
                 n3 = buff_3.pop(0)[1]
 
                 # Use N=3, as N typically ranges between 2 and 4.
-                # TODO: Find good estimations for N.
-                results.append(triangulate(n1, n2, n3, 3))
+                results.append(triangulate(n1, n2, n3, 3.5))
 
             # Todo: Maybe also calculate variance to display uncertainty.
             result = avg(results)
@@ -374,6 +249,7 @@ async def main():
                 file=f,
             )
 
+
 # Example configuration with 5 points per meter
 # box around (0,0) with area 10m^2, and equidistant triangle
 # (0, -5), (sqrt(25 - 2.5^2), 2.5), (-sqrt(25 - 2.5^2, 2.5).
@@ -411,7 +287,8 @@ init_lookup(
     3,
     -3,
     3,
-    [(-1.8180180180180183, -1.0095815621366517), (1.8819819819819819, -1.0095815621366517), (-0.0639639639639642, 2.0191631242733035)]
+    [(-1.8180180180180183, -1.0095815621366517), (1.8819819819819819, -1.0095815621366517),
+     (-0.0639639639639642, 2.0191631242733035)]
 )
 
 asyncio.run(main())
