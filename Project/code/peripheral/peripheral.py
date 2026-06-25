@@ -72,13 +72,13 @@ _tree_values: np.ndarray = None
 
 
 def init_lookup(res, xmin, xmax, ymin, ymax, triangle):
+    global points
+    global values
+
     p1, p2, p3 = triangle
 
     x_steps = int((xmax - xmin) / res)
     y_steps = int((ymax - ymin) / res)
-
-    points_list = []
-    values_list = []
 
     for i in range(x_steps + 1):
         x = xmin + i * res
@@ -95,14 +95,14 @@ def init_lookup(res, xmin, xmax, ymin, ymax, triangle):
             r21 = d2 / d1
             r31 = d3 / d1
 
-            points_list.append((r21, r31))
-            values_list.append((x, y))
+            points.append((r21, r31))
+            values.append((x, y))
 
     global _tree, _tree_values
-    _tree = KDTree(np.array(points_list))
-    _tree_values = np.array(values_list)
+    _tree = KDTree(np.array(points))
+    _tree_values = np.array(values)
 
-    print(f"Lookup table built: {len(points_list)} points")
+    print(f"Lookup table built: {len(points)} points")
 
 
 def lookup(r21, r31, k=4):
@@ -115,6 +115,22 @@ def lookup(r21, r31, k=4):
     xy = (_tree_values[idxs] * w[:, None]).sum(axis=0)
     return tuple(xy)
 
+def lookup_slow(r21, r31):
+    global points
+    global values
+
+    # Simple algorithm which searches all entries and returns the best matching one.
+    min_err = float("inf")
+    best = -1
+
+    for i in range(len(points)):
+        r21_t, r31_t = points[i]
+        err = (r21_t - r21) ** 2 + (r31_t - r31) ** 2
+        if min_err > err:
+            best = i
+            min_err = err
+
+    return values[best]
 
 def triangulate(n1, n2, n3, N, rssi0=None, solve=False):
     """
