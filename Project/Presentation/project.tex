@@ -91,21 +91,21 @@ Because \(d_2 = r_{21} \cdot d_1\) and \(d_3 = r_{31} \cdot d_1\) we have
 
 Squaring both sides yields
 \begin{IEEEeqnarray*}{r'c'l}
-    (x - x_2)^2 + (y - y_2)^2 = r_{21}^2 \cdot (x - x_1)^2 + (y - y_1)^2 \\
-    (x - x_3)^2 + (y - y_3)^2 = r_{31}^2 \cdot (x - x_1)^2 + (y - y_1)^2
+    (x - x_2)^2 + (y - y_2)^2 = r_{21}^2 \cdot ((x - x_1)^2 + (y - y_1)^2) \\
+    (x - x_3)^2 + (y - y_3)^2 = r_{31}^2 \cdot ((x - x_1)^2 + (y - y_1)^2)
 \end{IEEEeqnarray*}
 This a non-linear equation system with two equations and two unknowns \(x,y\).
+So, we don't need to measure the RSSIs at a fixed distance to configure the system, and we can track multiple devices at the same time.
 All that is left to do is solve the system.
 
 While this solution is mathematically pretty, it is hard to compute very fast on my laptop.
 And because we have to first triangulate before applying a smoothing algorithm, this means, that a lot of equation systems have to be solved very fast.
 This is inoptimal.
 
-\subsubsection{Distance Ratio Approximation}
+\subsubsection{Quantized Distance Ratio Approximation}
 Instead of solving equations using an algorithm to do so, we can also approximate a solution which converts measured distance ratios to device positions.
 We can easily calculate expected \(r_{21}\) and \(r_{31}\) from a device position \(x, y\), when the node positions do not change.
 The idea is to calculate a lookup table which maps the ratios to positions, by calculating the ratios for all positions in a fine grid.
-This works, because the mapping is bijective---for two ratios, there is exactly one position which yields this ratio.
 
 In reality, because we can not have our lookup function go through infinite entries, we have to choose from a finite amount.
 For this we used a k-d tree, which stores \((x,y)\) pairs in \((r_{21}, r_{31})\) space.
@@ -130,5 +130,10 @@ The algorithm might have some problems when both ratios are near \(0.5\) in tran
 \end{figure}
 
 Additionally, the solution works actually pretty good in reality.
-Todo: insert video here!
+
+\subsection{Solution for Task 3}
+We implemented the visualization as another application which reads the triangulated positions from a file and displays them.
+The triangle which the nodes form is also overlaid.
+The application can be configured to highlight addresses, which are known to be from a user device.
+This could be determined through, e.g., the content of the devices' Bluetooth advertisements.
 \end{document}
