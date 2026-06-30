@@ -1,23 +1,23 @@
+"""
+Animate tracked device positions over time.
+
+Loads triangulated positions from a log file and displays them as an animated scatter plot
+with device MAC addresses and reference triangle overlay.
+"""
+
 import sys
 import ast
 import numpy as np
 
-# import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import matplotlib.patches as patches
 
-# --------------------------------------------------
 # Load frames
-# --------------------------------------------------
-
 with open(sys.argv[1]) as f:
     frames = [ast.literal_eval(line.strip()) for line in f if line.strip()]
 
-# --------------------------------------------------
-# Determine plot limits
-# --------------------------------------------------
-
+# Determine plot limits from data
 all_x = []
 all_y = []
 
@@ -31,15 +31,7 @@ xmax = max(all_x) + 0.5
 ymin = min(all_y) - 0.5
 ymax = max(all_y) + 0.5
 
-# xmin = -2
-# xmax = 2
-# ymin = -1
-# ymax = 3
-
-# --------------------------------------------------
-# Create figure
-# --------------------------------------------------
-
+# Create figure and axes
 fig, ax = plt.subplots(figsize=(8, 6))
 
 scatter = ax.scatter([], [])
@@ -49,11 +41,16 @@ ax.set_xlim(xmin, xmax)
 ax.set_ylim(ymin, ymax)
 ax.set_aspect("equal")
 
-ax.set_xlabel("x")
-ax.set_ylabel("y")
+ax.set_xlabel("x (m)")
+ax.set_ylabel("y (m)")
 
+# Add reference triangle (node positions)
 triangle = patches.Polygon(
-    [(-1.8180180180180183, -1.0095815621366517), (1.8819819819819819, -1.0095815621366517), (-0.0639639639639642, 2.0191631242733035)],
+    [
+        (-1.8180180180180183, -1.0095815621366517),
+        (1.8819819819819819, -1.0095815621366517),
+        (-0.0639639639639642, 2.0191631242733035),
+    ],
     closed=True,
     fill=False,
     edgecolor="blue",
@@ -62,15 +59,12 @@ triangle = patches.Polygon(
 
 ax.add_patch(triangle)
 
-# --------------------------------------------------
-# Animation update
-# --------------------------------------------------
-
 
 def update(frame_idx):
+    """Update animation frame with new positions and labels."""
     global texts
 
-    # remove previous labels
+    # Remove previous labels
     for t in texts:
         t.remove()
     texts = []
@@ -83,9 +77,11 @@ def update(frame_idx):
         coords = [(x, y) for _, (x, y) in frame]
         scatter.set_offsets(coords)
 
+        # Add MAC address labels
         for identifier, (x, y) in frame:
+            # Highlight specific devices in red
             color = "blue"
-            if identifier == "6C:A5:49:DC:D8:8D" or identifier == "A0:28:84:03:E9:02":
+            if identifier in ("6C:A5:49:DC:D8:8D", "A0:28:84:03:E9:02"):
                 color = "red"
 
             txt = ax.text(x, y, identifier, fontsize=8, color=color)
@@ -96,12 +92,9 @@ def update(frame_idx):
     return [scatter, *texts]
 
 
-# --------------------------------------------------
-# Run animation
-# --------------------------------------------------
-
+# Create and run animation
 ani = FuncAnimation(
-    fig, update, frames=len(frames), interval=500, repeat=True  # ms between frames
+    fig, update, frames=len(frames), interval=500, repeat=True  # 500 ms between frames
 )
 
 plt.show()

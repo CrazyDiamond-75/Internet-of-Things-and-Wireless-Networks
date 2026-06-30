@@ -18,15 +18,12 @@
 // Has sadly to be set for each device manually with my ESP32s.
 #define NODE_ID 1
 
-/* Very slow advertising. */
-#define BT_LE_ADV_CONN_SLOW BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONNECTABLE, BT_GAP_ADV_SLOW_INT_MIN, BT_GAP_ADV_SLOW_INT_MAX, NULL)
-
 /* Messages we want to send contain a node ID, a timestamp, RSSI, and sender address.
    Packed to safe space. */
 typedef struct __packed
 {
     uint8_t nodeID;      // Our node ID. Either 1,2, or 3.
-    int64_t timestamp;   // Used by the central to calculate accurate positioning.
+    int64_t timestamp;   // May be used by the central to calculate accurate positioning.
     int8_t rssi;         // RSSI of the advertisement we received.
     bt_addr_le_t sender; // Address of the device which sent the advertisement.
 } message_t;

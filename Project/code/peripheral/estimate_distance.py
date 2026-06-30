@@ -1,3 +1,10 @@
+"""
+Analyze RSSI measurements and estimate distances to a target device.
+
+Uses the log-distance path loss model: distance = 10^((rssi0 - rssi) / (10*N))
+Supports automatic calibration or manual rssi0 configuration.
+"""
+
 import argparse
 import ast
 import statistics
@@ -7,6 +14,17 @@ import matplotlib.pyplot as plt
 
 
 def rssi_to_distance(rssi: float, rssi0: float, N: float) -> float:
+    """
+    Convert RSSI to distance using log-distance path loss model.
+
+    Args:
+        rssi: Measured RSSI in dBm
+        rssi0: Reference RSSI at 1m in dBm
+        N: Path-loss exponent (typically 2-4)
+
+    Returns:
+        Estimated distance in meters
+    """
     return 10.0 ** ((rssi0 - rssi) / (10.0 * N))
 
 
@@ -14,6 +32,18 @@ WINDOW_MS = 5000
 
 
 def auto_calibrate(samples: list[tuple[int, int]]) -> tuple[float, int, int]:
+    """
+    Automatically find the best calibration window (strongest RSSI region).
+
+    Args:
+        samples: List of (timestamp_ms, rssi) tuples, must be sorted by timestamp
+
+    Returns:
+        Tuple of (median_rssi, window_start_ms, window_end_ms)
+
+    Raises:
+        ValueError: If no suitable calibration window found
+    """
     if not samples:
         raise ValueError("No samples to calibrate from.")
 
@@ -34,7 +64,9 @@ def auto_calibrate(samples: list[tuple[int, int]]) -> tuple[float, int, int]:
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Analyze RSSI measurements and estimate distances"
+    )
     parser.add_argument("--file", required=True, help="Path to .tout log file from peripheral.py")
     parser.add_argument("--mac", required=True, help="MAC address of the target device")
     parser.add_argument("--rssi0", type=float, default=None,
@@ -47,6 +79,7 @@ def main():
                         help="Path-loss exponent (default 2.5, try 2-4 for indoors)")
     args = parser.parse_args()
 
+    # Load and filter samples for target MAC
     all_samples: list[tuple[int, int]] = []
     with open(args.file) as f:
         for line in f:
@@ -63,6 +96,7 @@ def main():
     all_samples.sort()
     print(f"Loaded {len(all_samples)} samples for {args.mac}")
 
+    # Determine calibration
     cal_start = cal_end = None
 
     if args.rssi0 is not None:
@@ -70,19 +104,27 @@ def main():
         print(f"Using provided rssi0 = {rssi0:.1f} dBm")
     else:
         if args.cal_start is not None and args.cal_end is not None:
-            cal_samples = [(t, r) for t, r in all_samples
-                           if args.cal_start <= t <= args.cal_end]
+            cal_samples = [
+                (t, r)
+                for t, r in all_samples
+                if args.cal_start <= t <= args.cal_end
+            ]
             if len(cal_samples) < 3:
                 sys.exit("Fewer than 3 samples in calibration window.")
             rssi0 = statistics.median(r for _, r in cal_samples)
             cal_start, cal_end = args.cal_start, args.cal_end
-            print(f"Calibration window [{cal_start}–{cal_end} ms]: "
-                  f"{len(cal_samples)} samples, rssi0 = {rssi0:.1f} dBm")
+            print(
+                f"Calibration window [{cal_start}-{cal_end} ms]: "
+                f"{len(cal_samples)} samples, rssi0 = {rssi0:.1f} dBm"
+            )
         else:
             rssi0, cal_start, cal_end = auto_calibrate(all_samples)
-            print(f"Auto-calibrated from strongest window "
-                  f"[{cal_start}–{cal_end} ms]: rssi0 = {rssi0:.1f} dBm")
+            print(
+                f"Auto-calibrated from strongest window "
+                f"[{cal_start}-{cal_end} ms]: rssi0 = {rssi0:.1f} dBm"
+            )
 
+    # Convert to distances
     timestamps_s = [t / 1000.0 for t, _ in all_samples]
     rssies = [r for _, r in all_samples]
     distances = [rssi_to_distance(r, rssi0, args.N) for r in rssies]
@@ -90,17 +132,22 @@ def main():
     print(f"\nPath-loss exponent N = {args.N}")
     print(f"Distance range: {min(distances):.2f} m – {max(distances):.2f} m")
 
+    # Plot results
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
-    fig.suptitle(f"Distance estimation — {args.mac}\n"
-                 f"rssi0 = {rssi0:.1f} dBm @ 1 m,  N = {args.N}")
+    fig.suptitle(
+        f"Distance estimation — {args.mac}\n"
+        f"rssi0 = {rssi0:.1f} dBm @ 1 m,  N = {args.N}"
+    )
 
     ax1.plot(timestamps_s, rssies, ".", markersize=3, color="steelblue", label="RSSI")
     ax1.set_ylabel("RSSI (dBm)")
-    ax1.axhline(rssi0, color="orange", linestyle="--", linewidth=1,
-                label=f"rssi0 = {rssi0:.1f} dBm")
+    ax1.axhline(
+        rssi0, color="orange", linestyle="--", linewidth=1, label=f"rssi0 = {rssi0:.1f} dBm"
+    )
     if cal_start is not None:
-        ax1.axvspan(cal_start / 1000, cal_end / 1000, alpha=0.15, color="green",
-                    label="calibration window")
+        ax1.axvspan(
+            cal_start / 1000, cal_end / 1000, alpha=0.15, color="green", label="calibration window"
+        )
     ax1.legend(fontsize=8)
     ax1.grid(True, alpha=0.3)
 
@@ -110,8 +157,9 @@ def main():
     ax2.set_xlabel("Time (s)")
     ax2.set_ylim(bottom=0)
     if cal_start is not None:
-        ax2.axvspan(cal_start / 1000, cal_end / 1000, alpha=0.15, color="green",
-                    label="calibration window")
+        ax2.axvspan(
+            cal_start / 1000, cal_end / 1000, alpha=0.15, color="green", label="calibration window"
+        )
     ax2.legend(fontsize=8)
     ax2.grid(True, alpha=0.3)
 
